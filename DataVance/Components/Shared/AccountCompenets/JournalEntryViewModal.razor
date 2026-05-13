@@ -1,0 +1,115 @@
+﻿@using DataVance.Application.FinanceSystem.DTO.JournalDTO
+@inject NavigationManager Navigation
+
+@if (IsVisible)
+{
+    <div class="modal fade show d-block rtl" tabindex="-1" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi bi-eye-fill me-2"></i> تفاصيل قيد اليومية رقم: @Entry?.EntryNumber
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="Close"></button>
+                </div>
+
+                <div class="modal-body bg-light p-4">
+                    @if (Entry == null)
+                    {
+                        <div class="text-center p-5">
+                            <div class="spinner-border text-primary"></div>
+                            <p class="mt-2">جاري تحميل البيانات...</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row g-3 mb-4 p-3 bg-white rounded shadow-sm border-start border-4 border-primary">
+                            <div class="col-md-3">
+                                <label class="text-muted small d-block">تاريخ القيد</label>
+                                <span class="fw-bold">@Entry.EntryDate.ToShortDateString()</span>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="text-muted small d-block">العملة / سعر الصرف</label>
+                                <span class="fw-bold text-primary">@Entry.CurrencyCode (@Entry.ExchangeRate)</span>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="text-muted small d-block">البيان العام</label>
+                                <span class="fw-bold">@Entry.Description</span>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive rounded shadow-sm">
+                            <table class="table table-hover align-middle mb-0 bg-white text-center">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>الحساب</th>
+                                        <th>مدين (محلي)</th>
+                                        <th>دائن (محلي)</th>
+                                        <th>البيان التفصيلي</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var line in Entry.Lines)
+                                    {
+                                        <tr>
+                                            <td class="text-end fw-bold">@line.AccountName</td>
+                                            <td class="text-success fw-bold">@line.DebitBase.ToString("N2")</td>
+                                            <td class="text-danger fw-bold">@line.CreditBase.ToString("N2")</td>
+                                            <td class="text-muted small">@line.Description</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot class="table-light fw-bold">
+                                    <tr>
+                                        <td>الإجمالي</td>
+                                        <td class="text-success">@Entry.Lines.Sum(x => x.DebitBase).ToString("N2")</td>
+                                        <td class="text-danger">@Entry.Lines.Sum(x => x.CreditBase).ToString("N2")</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <div class="modal-footer bg-white border-top d-flex justify-content-between">
+                    <div>
+                        <span class="badge @GetStatusClass(Entry?.Status)">الحالة: @Entry?.Status</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-warning px-4 fw-bold shadow-sm" @onclick="GoToEdit">
+                            <i class="bi bi-pencil-square me-1"></i> تعديل القيد
+                        </button>
+                        <button class="btn btn-secondary px-4 shadow-sm" @onclick="Close">إغلاق</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public JournalEntryDto? Entry { get; set; }
+
+    private async Task Close() => await OnClose.InvokeAsync();
+
+    private void GoToEdit()
+    {
+        if (Entry != null)
+        {
+            // الانتقال إلى المسار المطلوب مع تمرير المعرف (اختياري حسب تصميمك للـ Edit)
+            Navigation.NavigateTo($"/finance/transactions/journal-entries/create?editId={Entry.Id}");
+        }
+    }
+
+    private string GetStatusClass(string? status) => status switch
+    {
+        "Draft" => "bg-secondary",
+        "Approved" => "bg-primary",
+        "Posted" => "bg-success",
+        _ => "bg-dark"
+    };
+}

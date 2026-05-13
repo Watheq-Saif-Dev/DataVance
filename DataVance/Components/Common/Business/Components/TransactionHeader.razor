@@ -1,0 +1,264 @@
+﻿@using DataVance.Application.Common
+@using DataVance.Application.Features.Currencies.Queries
+@using DataVance.Components.Shared.GenericeModal
+@inject ILookUpService lookUpService
+@inherits DataVanceBasePage
+@typeparam TModel where TModel : class
+
+<div class="card mb-3 shadow-sm border-0 bg-light">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+
+
+
+         @if(!IsTransfer)
+         {
+                <div class="col-12 col-md-6 col-lg-4 col-xl-2">
+                    <label class="form-label fw-bold text-secondary small">طريقة الدفع</label>
+                    <select class="form-select form-select-sm" @onchange="OnPaymentMethodChanged">
+                        @foreach (DataVance.Domain.Finance.PaymentMethods.PaymentMethodType method in Enum.GetValues(typeof(DataVance.Domain.Finance.PaymentMethods.PaymentMethodType)))
+                        {
+                            <option value="@method" selected="@(SelectedMethod == method)">
+                                @GetEnumDescription(method)
+                            </option>
+                        }
+                    </select>
+                </div>
+
+                @if (SelectedMethod != DataVance.Domain.Finance.PaymentMethods.PaymentMethodType.Credit)
+                {
+                    <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+                        <label class="form-label fw-bold text-info small">@FinancialAccountLabel</label>
+                        <LookupField Title="@FinancialAccountLabel"
+                                     OnGetData="FetchFinancialAccounts"
+                                     DisplayName="@FinancialAccountName"
+                                     OnSelected="OnFinancialAccountSelected"
+                                     CustomColumns="@(new Dictionary<string,string> {
+                                                                                            { "Code", "الكود" },
+                                                                                            { "Name", "الاسم" },
+                                                                                                    })" />
+                    </div>
+                        }
+
+                <div class="col-12 col-md-6 col-lg-4 col-xl-3">
+                    <label class="form-label fw-bold text-secondary small">@PartnerTitle</label>
+                    <LookupField Title="PartnerTitle"
+                                 OnGetData="FetchVendor"
+                                 DisplayName="@PartnerName"
+                                 OnSelected="OnPartnerSelected"
+                                 CustomColumns="@(new Dictionary<string,string> {
+                                                                                                    { "Code", "الكود" },
+                                                                                                    { "Name", "الاسم" },
+                                                                                                    { "Email", "ايميل المورد" },
+                                                                                                    { "Phone","الرقم"}
+                                                                                                })" />
+                </div>
+        }
+
+            @if (IsTransfer)
+            {
+                <div class="col-12 col-md-6 col-lg-4 col-xl-2">
+                    <label class="form-label fw-bold text-secondary small"> من المستودع</label>
+                    <LookupField Title="من مستودع"
+                                 OnGetData="FetchWarehouses"
+                                 DisplayName="@WarehouseName"
+                                 OnSelected="OnFromWarehouseSelected" />
+                </div>
+                <div class="col-12 col-md-6 col-lg-4 col-xl-2">
+                    <label class="form-label fw-bold text-secondary small">الي المستودع </label>
+                    <LookupField Title="الي مستودع"
+                                 OnGetData="FetchWarehouses"
+                                 DisplayName="@WarehouseName"
+                                 OnSelected="OnToWarehouseSelected" />
+                </div>
+
+                
+            }
+            @if (!IsTransfer)
+            {
+                
+            <div class="col-12 col-md-6 col-lg-4 col-xl-2">
+                <label class="form-label fw-bold text-secondary small">المستودع</label>
+                <LookupField Title="اختر المستودع"
+                             OnGetData="FetchWarehouses"
+                             DisplayName="@WarehouseName"
+                             OnSelected="OnWarehouseSelected" />
+                </div>
+
+             }
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="row g-2">
+                    <div class="col-7 col-sm-8">
+                        <label class="form-label fw-bold text-secondary small">العملة</label>
+                        <LookupField Title="اختر العملة"
+                                     OnGetData="FetchCurrency"
+                                     DisplayName="@CurrencyName"
+                                     OnSelected="OnCurrencySelected"
+                                     CustomColumns="@(new Dictionary<string,string> {
+                                                                              { "Code", "الكود" },
+                                                                              { "Name", "العملة" },
+                                                                              { "ExchangeRate", "سعر الصرف" },
+                                                                              { "IsBase","الوحده الافتراضي"}
+                                                                          })" />
+                    </div>
+                    <div class="col-5 col-sm-4">
+                        <label class="form-label fw-bold text-secondary small">سعر الصرف</label>
+                        <input type="number" class="form-control" readonly @bind="ExchangeRate" @bind:event="oninput" @onchange="OnExchangeRateChanged" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-4 col-xl-2">
+                <label class="form-label fw-bold text-secondary small">التاريخ</label>
+                <input type="date" class="form-control" @bind="TransactionDate" />
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string PartnerTitle { get; set; } = "المورد/العميل";
+    [Parameter] public string PartnerName { get; set; } = "الاسم";
+    // [Parameter] public string BranchName { get; set; } = "اسم الفرع";
+    [Parameter] public string WarehouseName { get; set; } ="اسم المخزن";
+    [Parameter] public string CurrencyName { get; set; } = "اسم العملة";
+    [Parameter] public string FinancialAccountName { get; set; } = "اختر الحساب";
+
+
+    [Parameter] public Guid? AccountId { get; set; }
+    [Parameter] public decimal ExchangeRate { get; set; } = 1;
+    [Parameter] public DateTime TransactionDate { get; set; } = DateTime.Now;
+
+    [Parameter] public EventCallback<LookupItem> OnPartnerSelected { get; set; }
+    [Parameter] public EventCallback<LookupItem> OnBranchSelected { get; set; }
+    [Parameter] public EventCallback<LookupItem> OnWarehouseSelected { get; set; }
+    [Parameter] public EventCallback<LookupItem> OnFromWarehouseSelected { get; set; }
+    [Parameter] public EventCallback<LookupItem> OnToWarehouseSelected { get; set; }
+    [Parameter] public EventCallback<LookupItem> OnCurrencySelected { get; set; }
+    [Parameter] public EventCallback<decimal> OnExchangeRateUpdated { get; set; }
+    [Parameter] public EventCallback<DataVance.Domain.Finance.PaymentMethods.PaymentMethodType> OnPaymentMethodUpdated { get; set; }
+
+    [Parameter] public EventCallback<LookupItem> OnFinancialAccountSelected { get; set; }
+
+    [Parameter] public Func<Task<List<LookupItem>>>? OnGetPartnerData { get; set; }
+    // [Parameter] public Func<Task<List<LookupItem>>>? OnGetWarehouseData { get; set; }
+    // [Parameter] public Func<Task<List<LookupItem>>>? OnGetBranchData { get; set; }
+
+    private DataVance.Domain.Finance.PaymentMethods.PaymentMethodType SelectedMethod { get; set; } = DataVance.Domain.Finance.PaymentMethods.PaymentMethodType.Cash;
+
+    // تسمية الحقل المالي ديناميكياً
+    private string FinancialAccountLabel => SelectedMethod == DataVance.Domain.Finance.PaymentMethods.PaymentMethodType.Cash ? "الصندوق" : "البنك / الشبكة";
+
+    [Parameter] public bool IsTransfer { get; set; } = false;
+    [Parameter] public bool IsCustomer { get; set; } = false;
+    [Parameter] public bool IsVendor { get; set; } = false;
+
+    private async Task OnExchangeRateChanged(ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var rate))
+        {
+            await OnExchangeRateUpdated.InvokeAsync(rate);
+        }
+    }
+
+    private async Task<List<LookupItem>> FetchCurrency()
+    {
+        try
+        {
+            var result = await ExecuteAsync(new GetCurrencyLookupQuery(null, AccountId));
+            return result ?? new List<LookupItem>();
+        }
+        catch (Exception)
+        {
+            StatusService.ShowMessage("تعذر جلب قائمة العملات", true);
+            return new List<LookupItem>();
+        }
+    }
+
+
+    private async Task OnPaymentMethodChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<DataVance.Domain.Finance.PaymentMethods.PaymentMethodType>(e.Value?.ToString(), out var method))
+        {
+            SelectedMethod = method;
+
+            // إبلاغ الصفحة الرئيسية بالتغيير
+            await OnPaymentMethodUpdated.InvokeAsync(SelectedMethod);
+
+            StateHasChanged();
+        }
+    }
+
+    private string GetEnumDescription(Enum value)
+    {
+        var field = value.GetType().GetField(value.ToString());
+        var attribute = field?.GetCustomAttributes(typeof(System.ComponentModel.DescriptionAttribute), false)
+                              .FirstOrDefault() as System.ComponentModel.DescriptionAttribute;
+        return attribute?.Description ?? value.ToString();
+    }
+
+    private async Task<List<LookupItem>> FetchWarehouses()
+    {
+        try
+        {
+            var result = await ExecuteAsync(new GetWarehousesLookupQuery());
+            return result ?? new List<LookupItem>();
+        }
+        catch (Exception)
+        {
+            StatusService.ShowMessage("تعذر جلب قائمة العملات", true);
+            return new List<LookupItem>();
+        }
+    }
+    private async Task<List<LookupItem>> FetchVendor()
+    {
+        if (PartnerTitle =="المورد")
+        {
+            var result = await lookUpService.GetVendorLookup();
+            return result ;
+
+        }
+        else if (PartnerTitle == "العميل")
+        {
+            var result = await lookUpService.GetVendorLookup();
+            return result;
+        }
+        else
+        {
+            return new List<LookupItem>();
+        }
+    }
+    private async Task<List<LookupItem>> FetchFinancialAccounts()
+    {
+        var result = new List<LookupItem>();
+        
+        try
+        {
+
+            switch (SelectedMethod)
+            {
+                case DataVance.Domain.Finance.PaymentMethods.PaymentMethodType.Cash:
+                    result = await lookUpService.GetPaymentMethodType("Cash");
+                    break;
+                case DataVance.Domain.Finance.PaymentMethods.PaymentMethodType.Account:
+                    result = await lookUpService.GetAccountForPay();
+                    break;
+                case DataVance.Domain.Finance.PaymentMethods.PaymentMethodType.BankTransfer:
+                    result = await lookUpService.GetPaymentMethodType("Bank");
+                    break;
+            }
+            return  result;
+        }
+        catch (Exception)
+        {
+            StatusService.ShowMessage("تعذر جلب الحسابات المالية", true);
+            return new List<LookupItem>();
+        }
+    }
+
+
+}
+
+
+

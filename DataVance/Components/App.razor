@@ -1,0 +1,99 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    @* <HeadContent>
+        <!-- Bootstrap Icons -->
+
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+        <!-- Animate.css -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+
+    </HeadContent> *@
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+   
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="DataVance.styles.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Animate.css -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <HeadOutlet @rendermode="InteractiveServer" />
+</head>
+
+<body>
+    <Routes @rendermode="InteractiveServer" />
+    <script src="_framework/blazor.web.js"></script>
+    <script>
+        function confirmDelete(message)
+                 {
+               return confirm(message);
+                }
+
+    </script>
+    <script>
+        // دالة التركيز البسيطة
+              window.focusElement = (element) => {
+            if (element) {
+                // نستخدم setTimeout لضمان أن الـ Modal أُغلق تماماً قبل محاولة التركيز
+                setTimeout(() => {
+                    element.focus();
+                    // إذا كان حقل إدخال، نحدد النص لسهولة الإكمال
+                    if (element.tagName === 'INPUT') {
+                        element.select();
+                    }
+                }, 100);
+            }
+        };
+             window.focusNextElement = (currentElement) => {
+                 const activeEl = currentElement || document.activeElement;
+            setTimeout(() => {
+                // 1. نجلب جميع العناصر في الصفحة (حتى الـ readonly لكي نعرف أين نحن الآن)
+                const allFocusableSelector = 'input:not([disabled]), button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+                const elements = Array.from(document.querySelectorAll(allFocusableSelector));
+
+                // 2. نبحث عن ترتيب الحقل الحالي
+                const currentIndex = elements.indexOf(currentElement);
+
+                if (currentIndex > -1) {
+                    // 3. نبحث للأمام عن أول عنصر يسمح بالكتابة (ليس readonly)
+                    for (let i = currentIndex + 1; i < elements.length; i++) {
+                        const nextEl = elements[i];
+
+                        if (!nextEl.hasAttribute('disabled')) {
+                    nextEl.focus();
+                    if (nextEl.select && nextEl.tagName === 'INPUT') {
+                        nextEl.select();
+                    }
+                    break;
+                        }
+                    }
+                }
+            }, 150);
+        };
+
+        //  تسجيل أزرار الكيبورد
+        window.registerGlobalKeyDown = (dotNetHelper) => {
+            document.addEventListener('keydown', (e) => {
+                if (['F10', 'F2', 'F3', 'F9' ,'Enter'].includes(e.key)) {
+                    e.preventDefault();
+                }
+                dotNetHelper.invokeMethodAsync('HandleGlobalKeyDown', e.key);
+            });
+        };
+    </script>
+    <script>
+        // هذه الدالة التي يبحث عنها المتصفح الآن
+        window.getWindowDimensions = function () {
+            return {
+                width: window.innerWidth,
+                height: window.innerHeight
+            };
+        };
+    </script>
+</body>
+
+</html>

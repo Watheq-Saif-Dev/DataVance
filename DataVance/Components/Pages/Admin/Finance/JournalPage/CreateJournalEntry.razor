@@ -1,0 +1,312 @@
+﻿@page "/finance/transactions/journal-entries/create"
+@using DataVance.Application.Features.Accounts.DTOs
+@using DataVance.Application.Features.Accounts.Queries
+@using DataVance.Application.Features.Currencies.DTOs
+@using DataVance.Application.Features.Currencies.Queries
+@using DataVance.Application.FinanceSystem.Commands.JournalCommand
+@using DataVance.Application.FinanceSystem.DTO
+@using DataVance.Application.FinanceSystem.DTO.JournalDTO
+@using DataVance.Application.FinanceSystem.Query
+@using DataVance.Application.FinanceSystem.Query.JournalQuery
+@using DataVance.Components.Shared.AccountCompenets
+@inherits DataVanceBasePage
+@inject NavigationManager Navigation
+
+<div class="container-fluid mt-4 rtl text-right" dir="rtl">
+    <div class="card shadow-lg border-0 mb-5">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-file-earmark-post-fill fs-3 me-2"></i>
+                <h5 class="mb-0 fw-bold ms-2">إنشاء قيد يومية جديد</h5>
+            </div>
+            <div class="d-flex gap-2">
+                <span class="badge bg-light text-primary border shadow-sm">الحالة: مسودة</span>
+                <span class="badge bg-dark">2026</span>
+            </div>
+        </div>
+
+        <div class="card-body bg-light p-4">
+            <div class="row g-3 mb-4 p-3 bg-white rounded shadow-sm border-start border-4 border-primary">
+                <div class="col-md-2">
+                    <label class="form-label fw-bold text-muted small">رقم القيد</label>
+                    <input type="text" class="form-control bg-light border-0" @bind="Command.EntryNumber" placeholder="تلقائي..." readonly />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold text-muted small">تاريخ القيد</label>
+                    <input type="date" class="form-control border-secondary-subtle" @bind="Command.EntryDate" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold text-primary small">عملة القيد الرئيسية</label>
+                    <select class="form-select border-primary-subtle fw-bold" @onchange="OnHeaderCurrencyChanged">
+                        <option value="">اختر عملة الرأس...</option>
+                        @foreach (var curr in _currencies)
+                        {
+                            <option value="@curr.Id" selected="@(Command.CurrencyId == curr.Id)">@curr.Code - @curr.Symbol</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold text-primary small">سعر صرف الرأس</label>
+                    <input type="number" step="0.00001" class="form-control border-primary-subtle" @bind="Command.ExchangeRate" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold text-muted small">البيان العام</label>
+                    <input type="text" class="form-control border-secondary-subtle" @bind="Command.Description" placeholder="وصف موجز للعملية..." />
+                </div>
+            </div>
+
+            <div class="table-responsive rounded-3 shadow-sm">
+                <table class="table table-hover align-middle mb-0 bg-white">
+                    <thead class="table-dark">
+                        <tr class="text-center">
+                            <th style="width: 25%">الحساب التحليلي</th>
+                            <th style="width: 12%">مدين</th>
+                            <th style="width: 12%">دائن</th>
+                            <th style="width: 15%">العملة</th>
+                            <th style="width: 10%">سعر الصرف</th>
+                            <th style="width: 20%">البيان التفصيلي</th>
+                            <th style="width: 6%"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var line in Command.Lines)
+                        {
+                            <tr>
+                                <td>
+                                    <select class="form-select border-0 select2-like fw-bold" @bind="line.AccountId">
+                                        <option value="@Guid.Empty">-- اختر الحساب --</option>
+                                        @foreach (var acc in _accounts)
+                                        {
+                                            <option value="@acc.Id">@acc.Code - @acc.Name</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control text-end border-0 fw-bold no-arrows"
+                                           @bind="line.Debit" @bind:event="oninput" placeholder="0.00" />
+                                    <div class="text-start"><small class="text-success small-amt">≈ @((line.Debit * line.ExchangeRate).ToString())</small></div>
+                                </td>
+                                <td>
+                                    <input type="number" class="form-control text-end border-0 fw-bold no-arrows"
+                                           @bind="line.Credit" @bind:event="oninput" placeholder="0.00" />
+                                    <div class="text-start"><small class="text-danger small-amt">≈ @((line.Credit * line.ExchangeRate).ToString())</small></div>
+                                </td>
+                                <td>
+                                    <select class="form-select border-0 bg-light" value="@line.CurrencyId" @onchange="@(e => OnLineCurrencyChanged(line, e.Value?.ToString()))">
+                                        @foreach (var curr in _currencies)
+                                        {
+                                            <option value="@curr.Id">@curr.Code (@curr.Symbol)</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="number" step="0.00001" class="form-control border-0 text-center bg-light" @bind="line.ExchangeRate" />
+                                </td>
+                                <td>
+                                    <input type="text" class="form-control border-0" @bind="line.Description" placeholder="بيان السطر..." />
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-link text-danger p-0" @onclick="() => RemoveLine(line)">
+                                        <i class="bi bi-trash3-fill fs-5"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <button class="btn btn-outline-primary mt-3 fw-bold rounded-pill" @onclick="AddLine">
+                <i class="bi bi-plus-circle me-1"></i> إضافة سطر جديد
+            </button>
+        </div>
+
+        <div class="card-footer bg-white p-4 border-top">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <div class="d-flex gap-4 text-center">
+                        <div class="p-2 px-4 rounded bg-light border shadow-sm">
+                            <small class="text-muted d-block fw-bold">إجمالي المدين (محلي)</small>
+                            <span class="h4 mb-0 fw-bold text-primary">@TotalLocalDebit.ToString("N2")</span>
+                        </div>
+                        <div class="p-2 px-4 rounded bg-light border shadow-sm">
+                            <small class="text-muted d-block fw-bold">إجمالي الدائن (محلي)</small>
+                            <span class="h4 mb-0 fw-bold text-secondary">@TotalLocalCredit.ToString("N2")</span>
+                        </div>
+                        <div class="p-2 px-4 rounded border shadow-sm @(IsBalanced ? "bg-success-subtle" : "bg-danger-subtle")">
+                            <small class="text-muted d-block fw-bold">الفارق</small>
+                            <span class="h4 mb-0 fw-bold @(IsBalanced ? "text-success" : "text-danger")">
+                                @Difference.ToString("N2")
+                                @if (IsBalanced)
+                                {
+                                    <i class="bi bi-patch-check-fill ms-1"></i>
+                                }
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-left">
+                    <button class="btn btn-success btn-lg px-5 shadow fw-bold rounded-3 w-100"
+                            @onclick="SaveEntry"
+                            disabled="@(!IsBalanced || IsLoading)">
+                        @if (IsLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        <i class="bi bi-cloud-arrow-up-fill me-2"></i> ترحيل القيد المحاسبي
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<JournalEntryViewModal 
+    IsVisible="_showDetailsModal" 
+    Entry="_savedEntryDto" 
+    OnClose="HandleModalClose" />
+
+@code {
+    [SupplyParameterFromQuery(Name = "editId")]
+    public Guid? EditId { get; set; }
+    private CreateJournalEntryCommand Command;
+    private List<AccountDto> _accounts = new();
+    private List<CurrencyDto> _currencies = new();
+    //فتح الموديل 
+    private bool _showDetailsModal = false;
+    private JournalEntryDto? _savedEntryDto;
+    // private bool IsLoading = false;
+
+    // معالجة الأخطاء السابقة في الـ Sum (لضمان عملها مع decimal الصريح)
+    private decimal TotalLocalDebit => Command.Lines?.Sum(l => l.Debit * l.ExchangeRate) ?? 0;
+    private decimal TotalLocalCredit => Command.Lines?.Sum(l => l.Credit * l.ExchangeRate) ?? 0;
+    private decimal Difference => Math.Abs(TotalLocalDebit - TotalLocalCredit);
+    private bool IsBalanced => TotalLocalDebit > 0 && Difference < 0.01m;
+    private bool IsEditMode => EditId.HasValue && EditId.Value != Guid.Empty;
+    protected override async Task OnInitializedAsync()
+    {
+        _accounts = await ExecuteAsync(new GetAccountsQuery());
+        _currencies = await ExecuteAsync(new GetCurrenciesQuery());
+        if (IsEditMode)
+        {
+            await LoadEntryForEdit(EditId.Value);
+        }
+        else
+        {
+            // 1. تعيين العملة الافتراضية للرأس عند التحميل (لحل مشكلة عدم الحفظ)
+            var defaultCurr = _currencies.FirstOrDefault(c => c.IsBaseCurrency) ?? _currencies.FirstOrDefault();
+            if (defaultCurr != null)
+            {
+                Command.CurrencyId = defaultCurr.Id;
+                Command.ExchangeRate = defaultCurr.CurrentExchangeRate;
+            }
+
+            if (!Command.Lines.Any()) { AddLine(); AddLine(); }
+        }
+    }
+    private async Task LoadEntryForEdit(Guid id)
+    {
+        // نستخدم الاستعلام الذي بنيناه للتو
+        var entryDto = await ExecuteAsync(new GetJournalEntryByIdQuery(id));
+
+        if (entryDto != null)
+        {
+            // تعبئة حقول الرأس
+            Command.EntryNumber = entryDto.EntryNumber;
+            Command.EntryDate = entryDto.EntryDate;
+            Command.Description = entryDto.Description;
+            Command.CurrencyId = entryDto.CurrencyId;
+            Command.ExchangeRate = entryDto.ExchangeRate;
+
+            // تفريغ الأسطر الافتراضية وتعبئتها من قاعدة البيانات
+            Command.Lines.Clear();
+            foreach (var line in entryDto.Lines)
+            {
+                Command.Lines.Add(new JournalLineInput(line.AccountId, line.CreditBase, line.CreditBase, line.Description));
+
+            }
+        }
+    }
+
+    private void OnHeaderCurrencyChanged(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var currencyId))
+        {
+            Command.CurrencyId = currencyId;
+            var curr = _currencies.FirstOrDefault(c => c.Id == currencyId);
+            if (curr != null) Command.ExchangeRate = curr.CurrentExchangeRate;
+        }
+    }
+
+    private void OnLineCurrencyChanged(JournalLineInput line, string? currencyIdStr)
+    {
+        if (Guid.TryParse(currencyIdStr, out var currencyId))
+        {
+            line.CurrencyId = currencyId;
+            var curr = _currencies.FirstOrDefault(c => c.Id == currencyId);
+            if (curr != null) line.ExchangeRate = curr.CurrentExchangeRate;
+        }
+    }
+
+    private void AddLine()
+    {
+        Command.Lines.Add(new JournalLineInput(Guid.Empty, 0M, 0M, Command.Description));
+
+    }
+
+    private void RemoveLine(JournalLineInput line)
+    {
+        if (Command.Lines.Count > 2) Command.Lines.Remove(line);
+    }
+
+
+    private async Task SaveEntry()
+    {
+        if (!IsBalanced) return;
+
+        Guid resultId;
+
+        if (IsEditMode)
+        {
+            // بناء أمر التعديل (سنبنيه في الخطوة القادمة)
+            var updateCommand = new UpdateJournalEntryCommand
+            {
+                Id = EditId.Value,
+                EntryDate = Command.EntryDate,
+                Description = Command.Description,
+                CurrencyId = Command.CurrencyId,
+                ExchangeRate = Command.ExchangeRate,
+                Lines = Command.Lines //تمرير الأسطر المعدلة
+            };
+
+            resultId = await ExecuteAsync(updateCommand, "✅ تم تعديل وحفظ القيد بنجاح!");
+        }
+        else
+        {
+            // وضع الإنشاء الطبيعي
+            resultId = await ExecuteAsync(Command, "✅ تم حفظ القيد الجديد بنجاح!");
+        }
+
+        if (resultId != Guid.Empty)
+        {
+            // 1. جلب بيانات القيد الذي حُفظ للتو لعرضه في المودال
+            _savedEntryDto = await ExecuteAsync(new GetJournalEntryByIdQuery(resultId));
+
+            // 2. إظهار المودال (الكمبوننت الخاص بك)
+            _showDetailsModal = true;
+
+            StateHasChanged(); // تحديث الواجهة
+        }
+    }
+    private void HandleModalClose()
+    {
+        _showDetailsModal = false;
+        // إذا أردت تفريغ الصفحة للبدء بقيد جديد بعد الإغلاق:
+        if (!IsEditMode)
+        {
+            Command = new CreateJournalEntryCommand(Command.EntryNumber, Command.EntryDate, Command.BranchId, Command.CurrencyId, Command.ExchangeRate, Command.Description, Command.Lines);
+            AddLine(); AddLine();
+        }
+    }
+}
+
+

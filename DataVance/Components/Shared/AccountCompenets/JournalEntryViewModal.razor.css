@@ -1,0 +1,9 @@
+﻿.rtl {
+        direction: rtl;
+        font-family: 'Cairo', sans-serif;
+        text-align: right;
+    }
+
+    .modal-xl {
+        max-width: 90%;
+    }

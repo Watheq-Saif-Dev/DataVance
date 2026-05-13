@@ -1,0 +1,152 @@
+﻿@inherits DataVanceBasePage
+@using System.Text.Json
+@using DataVance.Application.AuditSystem.AuditEvents
+@using DataVance.Application.AuditSystem.DTO
+@using MediatR
+@inject IJSRuntime JS
+
+@if (Show)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-clock-history me-2"></i> تفاصيل الحركة #@CurrentLog?.Id.ToString().Substring(0, 8)
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="Close"></button>
+                </div>
+                
+                <div class="modal-body">
+                    @if (CurrentLog != null)
+                    {
+                        <div class="alert alert-light border shadow-sm mb-3">
+                            <div class="row">
+                                <div class="col-md-6"><strong><i class="bi bi-gear"></i> العملية:</strong> @CurrentLog.Action</div>
+                                <div class="col-md-6"><strong><i class="bi bi-calendar"></i> التاريخ:</strong> @CurrentLog.CreatedAt</div>
+                                <div class="col-md-12 mt-2"><strong><i class="bi bi-person"></i> المستخدم:</strong> @CurrentLog.UserEmail</div>
+                                <div class="col-md-12 mt-2 text-muted small"><i class="bi bi-laptop"></i> @CurrentLog.Details</div>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive rounded shadow-sm">
+                            <table class="table table-bordered mb-0">
+                                <thead class="table-primary">
+                                    <tr>
+                                        <th>الحقل (Field)</th>
+                                        <th>القيمة القديمة (Before)</th>
+                                        <th>القيمة الجديدة (After)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in GetComparison())
+                                    {
+                                        <tr class="@(item.IsChanged ? "table-warning" : "")">
+                                            <td class="fw-bold">@item.FieldName</td>
+                                            <td class="text-danger small">@item.OldVal</td>
+                                            <td class="text-success small">@item.NewVal</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <div class="modal-footer bg-light">
+                    @if (CurrentLog?.UserEmail != null && CurrentLog.Action != "Create")
+                    {
+                        <button class="btn btn-warning" @onclick="RollbackChanges" disabled="@isProcessing">
+                            @if (isProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span> <span>جاري الاسترجاع...</span>
+                            }
+                            else
+                            {
+                                <span><i class="bi bi-arrow-counterclockwise"></i> استعادة البيانات (Rollback)</span>
+                            }
+                        </button>
+                    }
+                    <button type="button" class="btn btn-secondary" @onclick="Close">إغلاق</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+    private AuditLogDto? CurrentLog { get; set; } 
+    private bool Show { get; set; } = false;
+    private bool isProcessing = false;
+
+    public void Open(AuditLogDto log)
+    {
+        CurrentLog = log;
+        Show = true;
+        StateHasChanged();
+    }
+
+    private void Close()
+    {
+        Show = false;
+        OnClose.InvokeAsync();
+    }
+
+    private async Task RollbackChanges()
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "تحذير: هل أنت متأكد من استعادة القيم القديمة؟"))
+            return;
+
+        isProcessing = true;
+        try
+        {
+            var result = await ExecuteAsync(new RollbackAuditCommand(CurrentLog.Id));
+            if (result)
+            {
+                await JS.InvokeVoidAsync("alert", "✅ تم استعادة البيانات بنجاح!");
+                Close();
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "⚠️ لم يتم العثور على طريقة لاستعادة هذا النوع من البيانات.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"❌ خطأ: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private List<CompareItem> GetComparison()
+    {
+        var list = new List<CompareItem>();
+        if (CurrentLog == null) return list;
+
+        var oldDict = ParseJson(CurrentLog.Action);
+        var newDict = ParseJson(CurrentLog.Details);
+        var allKeys = oldDict.Keys.Union(newDict.Keys).Where(k => k != "Id" && k != "Modified" && k != "Created").ToList();
+
+        foreach (var key in allKeys)
+        {
+            var oldV = oldDict.GetValueOrDefault(key)?.ToString() ?? "—";
+            var newV = newDict.GetValueOrDefault(key)?.ToString() ?? "—";
+            list.Add(new CompareItem { FieldName = key, OldVal = oldV, NewVal = newV, IsChanged = oldV != newV });
+        }
+        return list;
+    }
+
+    private Dictionary<string, object> ParseJson(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return new Dictionary<string, object>();
+        try { return JsonSerializer.Deserialize<Dictionary<string, object>>(json) ?? new(); }
+        catch { return new(); }
+    }
+
+    public class CompareItem { public string FieldName { get; set; } public string? OldVal { get; set; } public string? NewVal { get; set; } public bool IsChanged { get; set; } }
+}
+

@@ -1,0 +1,33 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Explicitly declare text files — use CRLF on Windows checkout
+*.cs        text eol=crlf
+*.razor     text eol=crlf
+*.css       text eol=crlf
+*.js        text eol=crlf
+*.json      text eol=crlf
+*.md        text eol=crlf
+*.xml       text eol=crlf
+*.csproj    text eol=crlf
+*.sln       text eol=crlf
+*.txt       text eol=crlf
+*.config    text eol=crlf
+*.html      text eol=crlf
+*.cshtml    text eol=crlf
+
+# Binary files — no line ending conversion
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.svg       binary
+*.ttf       binary
+*.woff      binary
+*.woff2     binary
+*.eot       binary
+*.exe       binary
+*.dll       binary
+*.pdf       binary
+*.zip       binary

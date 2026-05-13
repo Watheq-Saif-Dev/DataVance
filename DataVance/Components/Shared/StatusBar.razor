@@ -1,0 +1,37 @@
+﻿@using DataVance.Application.AlertServices
+@implements IDisposable
+@inject IStatusMessageService StatusService
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="status-bar @(_isError ? "error" : "success")">
+        <span class="message-text">@_message</span>
+        <button class="close-btn" @onclick="() => _message = null">×</button>
+    </div>
+}
+
+
+@code {
+    private string? _message;
+    private bool _isError;
+
+    protected override void OnInitialized()
+    {
+        StatusService.OnMessageReceived += HandleMessage;
+    }
+
+    private void HandleMessage(string message, bool isError)
+    {
+        InvokeAsync(() =>
+        {
+            _message = message;
+            _isError = isError;
+            StateHasChanged();
+
+            // إخفاء الرسالة تلقائياً بعد 5 ثوانٍ
+            Task.Delay(5000).ContinueWith(_ => { _message = null; InvokeAsync(StateHasChanged); });
+        });
+    }
+
+    public void Dispose() => StatusService.OnMessageReceived -= HandleMessage;
+}

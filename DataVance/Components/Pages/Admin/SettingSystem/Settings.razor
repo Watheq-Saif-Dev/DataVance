@@ -1,0 +1,188 @@
+﻿@page "/admin/settings"
+@inherits DataVanceBasePage
+@using DataVance.Application.Features.Accounts.DTOs
+@using DataVance.Application.Features.Accounts.Queries
+@using DataVance.Application.Features.Currencies.DTOs
+@using DataVance.Application.Features.Currencies.Queries
+@using DataVance.Application.FinanceSystem.DTO
+@using DataVance.Application.FinanceSystem.Query
+
+@using DataVance.Application.SharedAgg.Setting.SettingCommend
+@using DataVance.Application.SharedAgg.Setting.SettingDto
+@using DataVance.Application.SharedAgg.Setting.SettingQuery
+<div class="container-fluid mt-4" dir="rtl" style="text-align: right;">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <i class="bi bi-list-ul"></i> أقسام الإعدادات
+                </div>
+                <div class="list-group list-group-flush">
+                    <button @onclick='() => ChangeCategory("Accounting")'
+                            class="list-group-item list-group-item-action @(ActiveCategory == "Accounting" ? "active" : "")">
+                        <i class="bi bi-calculator"></i> إعدادات المحاسبة
+                    </button>
+                    <button @onclick='() => ChangeCategory("Currencies")'
+                            class="list-group-item list-group-item-action @(ActiveCategory == "Currencies" ? "active" : "")">
+                        <i class="bi bi-coin"></i> إعدادات العملات
+                    </button>
+                    <button @onclick='() => ChangeCategory("General")'
+                            class="list-group-item list-group-item-action @(ActiveCategory == "General" ? "active" : "")">
+                        <i class="bi bi-gear"></i> إعدادات النظام العامة
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-bottom fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-sliders"></i> تحرير إعدادات: @ActiveCategory</span>
+                    @if (isLoading)
+                    {
+                        <div class="spinner-border spinner-border-sm text-primary"></div>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (SettingsList != null && SettingsList.Any())
+                    {
+                        @foreach (var setting in SettingsList.OrderBy(x => x.DisplayOrder))
+                        {
+                            <div class="mb-4 p-3 border rounded bg-light shadow-sm">
+                                <div class="row align-items-center">
+                                    <div class="col-md-5">
+                                        <h6 class="fw-bold mb-1">@setting.DisplayName</h6>
+                                        <p class="text-muted small mb-0">@setting.Description</p>
+                                    </div>
+                                    <div class="col-md-5">
+                                        @* التحقق من نوع المدخل بناءً على Metadata الإعداد *@
+                                        @if (setting.LookupType == "Accounts")
+                                        {
+                                            <select class="form-select border-primary" @bind="setting.Value">
+                                                <option value="">-- اختر حساب من الشجرة --</option>
+                                                @foreach (var acc in AllAccounts)
+                                                {
+                                                    <option value="@acc.Id">@acc.Code - @acc.Name</option>
+                                                }
+                                            </select>
+                                        }
+                                        else if (setting.LookupType == "Currencies")
+                                        {
+                                            <select class="form-select border-info" @bind="setting.Value">
+                                                <option value="">-- اختر العملة الأساسية --</option>
+                                                @foreach (var curr in AllCurrencies)
+                                                {
+                                                    <option value="@curr.Id">@curr.Name (@curr.Symbol)</option>
+                                                }
+                                            </select>
+                                        }
+                                        else if (setting.ValueType == "Boolean")
+                                        {
+                                            <div class="form-check form-switch mt-2">
+                                                <input class="form-check-input" type="checkbox"
+                                                       checked="@(setting.Value.ToLower() == "true")"
+                                                       @onchange='(e) => setting.Value = e.Value.ToString()'>
+                                                <label class="form-check-label">تفعيل / تعطيل</label>
+                                            </div>
+                                        }
+                                        else if (setting.ValueType == "Image")
+                                        {
+                                            <div class="d-flex align-items-center gap-3">
+                                                @if (!string.IsNullOrEmpty(setting.Value))
+                                                {
+                                                    <img src="@setting.Value" style="width: 80px; height: 80px; object-fit: contain;" class="border rounded" />
+                                                }
+                                                <InputFile OnChange="@(e => HandleImageUpload(e, setting))" class="form-control" />
+                                            </div>
+                                        }
+                                        else if (setting.ValueType == "TextArea")
+                                        {
+                                            <textarea class="form-control" rows="3" @bind="setting.Value"></textarea>
+                                        }
+                                        else if (setting.ValueType == "Int")
+                                        {
+                                            <input type="number" class="form-control" @bind="setting.Value" />
+                                        }
+                                        else
+                                        {
+                                            <input type="text" class="form-control" @bind="setting.Value" />
+                                        }
+                                    </div>
+                                    <div class="col-md-2 text-start">
+                                        <button class="btn btn-sm btn-outline-success"
+                                                @onclick="() => SaveSetting(setting)"
+                                                disabled="@isSaving">
+                                            <i class="bi bi-check2-circle"></i> حفظ
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else if (!isLoading)
+                    {
+                        <div class="alert alert-warning text-center">لا توجد إعدادات مضافة لهذا القسم حالياً.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string ActiveCategory = "Accounting";
+    private List<SystemSettingDto> SettingsList = new();
+    private List<AccountDto> AllAccounts = new();
+    private List<CurrencyDto> AllCurrencies = new();
+    private bool isLoading = false;
+    private bool isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // تحميل شجرة الحسابات مرة واحدة لاستخدامها في الـ Lookups
+        AllAccounts = await ExecuteAsync(new GetAccountsQuery());
+        AllCurrencies = await ExecuteAsync(new GetCurrenciesQuery());
+        await LoadSettings();
+    }
+
+    private async Task ChangeCategory(string category)
+    {
+        ActiveCategory = category;
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        isLoading = true;
+        SettingsList = await ExecuteAsync(new GetSettingsByCategoryQuery(ActiveCategory));
+        isLoading = false;
+    }
+
+    private async Task HandleImageUpload(InputFileChangeEventArgs e, SystemSettingDto setting)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            var format = "image/png";
+            var resizedImage = await file.RequestImageFileAsync(format, 300, 300);
+            var buffer = new byte[resizedImage.Size];
+            await resizedImage.OpenReadStream().ReadAsync(buffer);
+
+            // تحويل الصورة لـ Base64 لتخزينها في قاعدة البيانات مباشرة
+            setting.Value = $"data:{format};base64,{Convert.ToBase64String(buffer)}";
+
+            // يمكنك الآن الضغط على زر "حفظ" لتخزين السلسلة النصية في الداتابيز
+        }
+    }
+    private async Task SaveSetting(SystemSettingDto setting)
+    {
+        isSaving = true;
+        var result = await ExecuteAsync(new UpdateSettingCommand(setting.Category, setting.Key, setting.Value));
+        if (result)
+        {
+            // هنا يمكنك إظهار Toast ناجح
+            Console.WriteLine($"Saved: {setting.Key}");
+        }
+        isSaving = false;
+    }
+}

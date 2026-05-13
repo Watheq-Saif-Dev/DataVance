@@ -1,0 +1,150 @@
+﻿@page "/addactionForPage"
+@using DataVance.Application.Common
+@using DataVance.Application.Security.DTO
+@using DataVance.Application.Security.DTO.Models
+@using DataVance.Application.Security.Queries
+@using DataVance.Components.Common.Business.Components
+@using DataVance.Components.Common.Business.ModelDesgin
+@using DataVance.Components.Shared.GenericeModal
+
+
+@inherits DataVanceBasePage
+
+<CascadingValue Value="this">
+    <div class="permissions-container p-4 fade-in" dir="rtl">
+        @* شريط الإجراءات للحفظ *@
+        <ActionToolbar Permissions="_pageToolbarPermissions"
+                       OnSave="OnSaveShortcut"
+                       IsSubmitting="_isSaving" />
+        <div class="card shadow-sm border-0 mt-4">
+        <div class="col-md-5">
+            @* حقل البحث الديناميكي *@
+            <LookupField Title="الصفحات"
+                         OnGetData="@(() => OpenTargetLookup())"
+                         DisplayName="@PagesName"
+                         OnSelected="SelectTarget" />
+        </div>
+        </div>
+
+        <div class="table-responsive mt-4 rounded border shadow-sm">
+            <table class="table table-hover align-middle bg-white mb-0">
+                <thead class="table-light">
+                    <tr>
+                        @foreach (var act in _allSystemActions)
+                        {
+                            <th class="text-center">@act.DisplayName</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        @foreach (var act in _allSystemActions)
+                        {
+                            <td class="text-center">
+
+                                <div class="form-check form-switch d-flex justify-content-center m-0">
+                                    <input class="form-check-input cursor-pointer" type="checkbox"
+                                           checked="@act.IsActive"
+                                           @onchange="(e) => TogglePageAction(PagesId, act.Id, e.Value!)">
+                                </div>
+                            </td>
+                        }
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</CascadingValue>
+<LookupModal @ref="GenericModal" OnItemSelected="HandleItemSelected" />
+@code {
+    private PagePermissions _pageToolbarPermissions = new();
+
+    private bool _isSaving { get; set; }
+
+    private Guid PagesId { get; set; } = Guid.Empty;
+    private string PagesName { get; set; } = " ";
+    private List<SystemActionDto> _allSystemActions = new();
+    private List<PageActionDto> _PageAction { get; init; } = new();
+    protected override async Task OnInitializedAsync()
+    {
+
+        await LoadPageAction();
+    }
+    private async Task<List<LookupItem>> OpenTargetLookup()
+    {
+        var _allPages = await ExecuteAsync(new GetAllPagesQuery());
+        return _allPages.Select(x => new LookupItem{
+                Id = x.Id,
+                Code = x.DisplayName
+        }).ToList();
+    }
+    private async Task SelectTarget(LookupItem item)
+    {
+        PagesId = item.Id;
+        PagesName = item.Code;
+        await LoadPageAction();
+        StateHasChanged();
+    }
+    private async Task LoadPageAction()
+    {
+        _allSystemActions = await ExecuteAsync(new GetPageActionsQuery(PagesId));
+    }
+    private void TogglePageAction(Guid pageId, Guid actionId, object isChecked)
+    {
+        bool granted = (bool)isChecked;
+
+        // 1. تحديث حالة العرض في الجدول فوراً
+        var actionInTable = _allSystemActions.FirstOrDefault(a => a.Id == actionId);
+        if (actionInTable != null) actionInTable.IsActive = granted;
+
+        // 2. تحديث قائمة البيانات المرسلة للسيرفر
+        var existing = _PageAction.FirstOrDefault(p => p.ActionId == actionId);
+        if (existing != null)
+        {
+            existing.IsActive = granted;
+        }
+        else
+        {
+            _PageAction.Add(new PageActionDto
+            {
+                ActionId = actionId,
+                IsActive = granted
+            });
+        }
+    }
+    private async Task SaveAllPermissions()
+    {
+        if (PagesId == Guid.Empty) return;
+
+        _isSaving = true;
+
+        var command = new UpdateActionPageCommand
+        {
+            PageId = PagesId,
+            PageAction = _PageAction.ToList() // إرسال نسخة من القائمة
+        };
+
+        var result = await ExecuteAsync(command, "تم حفظ الإجراءات بنجاح");
+
+        if (result)
+        {
+            // تصفير قائمة التعديلات المؤقتة لأنها حُفظت خلاص
+            _PageAction.Clear();
+            PagesId = Guid.Empty;
+            PagesName = "";
+            // إعادة تحميل البيانات من السيرفر لضمان مطابقة الواجهة لقاعدة البيانات
+            await LoadPageAction();
+        }
+
+        _isSaving = false;
+        StateHasChanged();
+    }
+    protected override async Task OnSaveShortcut()
+    {
+        await SaveAllPermissions();
+    }
+
+
+}
+
+

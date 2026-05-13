@@ -1,0 +1,103 @@
+﻿.finance-container {
+        padding: 20px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    .loading-bar {
+        height: 4px;
+        background: #007bff;
+        width: 100%;
+        animation: loading 2s infinite;
+    }
+
+    .periods-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+
+    .period-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        background: white;
+        transition: transform 0.2s;
+    }
+
+        .period-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .period-card.closed {
+            border-right: 5px solid #d32f2f;
+        }
+
+        .period-card.open {
+            border-right: 5px solid #388e3c;
+        }
+
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+
+    .status-badge {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 12px;
+        color: white;
+    }
+
+    .closed .status-badge {
+        background: #d32f2f;
+    }
+
+    .open .status-badge {
+        background: #388e3c;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    .btn-primary {
+        background: #007bff;
+        color: white;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn:hover {
+        opacity: 0.8;
+    }
+
+    @@keyframes loading {
+        0% {
+            width: 0;
+        }
+
+        50% {
+            width: 100%;
+        }
+
+        100% {
+            width: 0;
+        }
+    }

@@ -1,0 +1,42 @@
+﻿/* ظ„ظ…ط³ط§طھ ط¬ظ…ط§ظ„ظٹط© طھط´ط¨ظ‡ SAP Fiori */
+    .sap-card {
+        border-radius: 0;
+        border-top: 4px solid #0854a0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .sap-filter-bar {
+        background-color: #f7f7f7;
+        border-bottom: 1px solid #d9d9d9;
+        padding: 1rem;
+    }
+
+    .sap-table thead {
+        background-color: #f2f2f2;
+        color: #6a6d70;
+        font-weight: 600;
+    }
+
+    .sap-badge-create {
+        background-color: #e7f4e9;
+        color: #107e3e;
+        border: 1px solid #107e3e;
+    }
+
+    .sap-badge-update {
+        background-color: #fff8e6;
+        color: #b98000;
+        border: 1px solid #b98000;
+    }
+
+    .sap-btn-primary {
+        background-color: #0854a0;
+        color: white;
+        border-radius: 4px;
+        border: none;
+        padding: 5px 15px;
+    }
+
+        .sap-btn-primary:hover {
+            background-color: #0a6ed1;
+        }

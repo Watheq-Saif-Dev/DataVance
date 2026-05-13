@@ -1,0 +1,153 @@
+﻿@page "/finance/setup/fiscal-years"
+@using DataVance.Application.Features.FiscalYears.Commands
+@using DataVance.Application.Features.FiscalYears.DTOs
+@using DataVance.Application.Features.FiscalYears.Queries
+
+@inherits DataVanceBasePage
+@inject NavigationManager Navigation
+
+<div class="container-fluid mt-4 rtl">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="fw-bold text-primary">إدارة السنوات المالية</h3>
+        <button class="btn btn-primary" @onclick="OpenModal">
+            <i class="oi oi-plus me-2"></i> فتح سنة مالية جديدة
+        </button>
+    </div>
+
+    @if (IsLoading && _fiscalYears == null)
+    {
+        <div class="text-center mt-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p>جاري تحميل السنوات...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0 text-center">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>اسم السنة</th>
+                            <th>تاريخ البداية</th>
+                            <th>تاريخ النهاية</th>
+                            <th>الحالة</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var year in _fiscalYears)
+                        {
+                            <tr>
+                                <td class="fw-bold">@year.Name</td>
+                                <td>@year.StartDate.ToString("yyyy/MM/dd")</td>
+                                <td>@year.EndDate.ToString("yyyy/MM/dd")</td>
+                                <td>
+                                    <span class="badge @(year.IsClosed ? "bg-danger" : "bg-success")">
+                                        @(year.IsClosed ? "مغلقة" : "مفتوحة")
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-info" @onclick="() => ViewPeriods(year.Id)">
+                                        <i class="oi oi-list"></i> الفترات (13)
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@* مودال إضافة سنة جديدة (CSS/HTML خالص) *@
+@if (_showModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">تأسيس سنة مالية جديدة</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">اسم السنة</label>
+                        <input type="text" class="form-control" placeholder="مثال: 2026" @bind="_newYear.Name" />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">تاريخ البداية</label>
+                            <input type="date" class="form-control" @bind="_newYear.StartDate" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">تاريخ النهاية</label>
+                            <input type="date" class="form-control" @bind="_newYear.EndDate" />
+                        </div>
+                    </div>
+                    <div class="alert alert-info py-2">
+                        <small><i class="oi oi-info me-1"></i> سيقوم النظام آلياً بتوليد 12 شهراً وفترة تسويات ختامية.</small>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">إلغاء</button>
+                    <button type="button" class="btn btn-primary" disabled="@IsLoading" @onclick="SaveFiscalYear">
+                        @if (IsLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        حفظ وتوليد الفترات
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<FiscalYearDto> _fiscalYears = new();
+    private bool _showModal = false;
+    private CreateModel _newYear = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFiscalYears();
+    }
+
+    private async Task LoadFiscalYears()
+    {
+        _fiscalYears = await ExecuteAsync(new GetFiscalYearsQuery());
+    }
+
+    private void OpenModal() => _showModal = true;
+    private void CloseModal() => _showModal = false;
+
+    private async Task SaveFiscalYear()
+    {
+        var command = new CreateFiscalYearCommand(_newYear.Name, _newYear.StartDate, _newYear.EndDate);
+
+        // استخدام محرك التنفيذ الموحد من الـ Base Component
+        var result = await ExecuteAsync(command, "تم تأسيس السنة المالية والـ 13 فترة بنجاح");
+
+        if (result != Guid.Empty)
+        {
+            _showModal = false;
+            await LoadFiscalYears();
+        }
+    }
+
+    private void ViewPeriods(Guid yearId)
+    {
+        // سيقوم بالانتقال إلى المسار: /finance/setup/fiscal-years/{yearId}/periods
+        Navigation.NavigateTo($"/finance/setup/fiscal-years/{yearId}/periods");
+    }
+
+    public class CreateModel
+    {
+        public string Name { get; set; } = DateTime.Now.Year.ToString();
+        public DateTime StartDate { get; set; } = new DateTime(DateTime.Now.Year, 1, 1);
+        public DateTime EndDate { get; set; } = new DateTime(DateTime.Now.Year, 12, 31);
+    }
+}
+

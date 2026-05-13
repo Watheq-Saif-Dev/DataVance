@@ -1,0 +1,70 @@
+﻿
+@if (IsVisible)
+{
+    <div class="numpad-overlay" @onclick="Close">
+        <div class="numpad-content shadow-lg rounded-4 p-4 bg-white border border-primary" @onclick:stopPropagation="true">
+            <div class="text-center mb-3">
+                <label class="small text-muted d-block mb-1">
+                    تعديل <span class="badge bg-primary">@Title</span>
+                </label>
+                <div class="fw-bold text-dark text-truncate px-2">@SubTitle</div>
+
+                <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mt-2">
+                    <div class="display-4 fw-bold text-primary ms-2" style="min-height: 60px;">
+                        @(string.IsNullOrEmpty(buffer) ? "0" : buffer)
+                    </div>
+                    <button class="btn btn-light text-danger fs-4 border" @onclick='() => HandlePress("DEL")'>
+                        <i class="bi bi-backspace-fill"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="numpad-grid">
+                @foreach (var num in new[] { "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "C" })
+                {
+                    <button class="btn btn-lg @(num == "C" ? "btn-danger" : "btn-light border") p-3 fs-2 fw-bold"
+                            @onclick='() => HandlePress(num)'>
+                        @num
+                    </button>
+                }
+            </div>
+
+            <div class="row g-2 mt-3">
+                <div class="col-12">
+                    <button class="btn btn-primary w-100 py-3 fs-5 fw-bold shadow-sm" @onclick="Close">
+                        <i class="bi bi-check-circle me-2"></i> تم التعديل
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string SubTitle { get; set; } = "";
+    [Parameter] public decimal CurrentValue { get; set; }
+    [Parameter] public EventCallback<decimal> OnValueChanged { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string buffer = "";
+
+    // عندما تتغير القيمة القادمة من الخارج، نحدث البافر
+    protected override void OnParametersSet()
+    {
+        if (IsVisible) buffer = CurrentValue > 0 ? CurrentValue.ToString("G29") : "";
+    }
+
+    private async Task HandlePress(string key)
+    {
+        if (key == "C") buffer = "";
+        else if (key == "DEL") { if (buffer.Length > 0) buffer = buffer[..^1]; }
+        else if (key == ".") { if (!buffer.Contains(".")) buffer = string.IsNullOrEmpty(buffer) ? "0." : buffer + "."; }
+        else buffer += key;
+
+        decimal.TryParse(buffer, out decimal result);
+        await OnValueChanged.InvokeAsync(result);
+    }
+
+    private async Task Close() => await OnClose.InvokeAsync();
+}

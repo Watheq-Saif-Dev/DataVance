@@ -1,0 +1,247 @@
+﻿@page "/accounting/opening-balances/add"
+@using DataVance.Application.Features.Accounts.DTOs
+@using DataVance.Application.Features.Accounts.Queries
+@using DataVance.Application.Features.Currencies.DTOs
+@using DataVance.Application.Features.Currencies.Queries
+@using DataVance.Application.Features.OpeningBalances.Commands
+@using DataVance.Application.Features.OpeningBalances.DTOs
+@using DataVance.Application.FinanceSystem.DTO
+@using DataVance.Application.FinanceSystem.Query
+@using DataVance.Application.SharedAgg.BrancheSystem.Quer
+@using DataVance.Application.SharedAgg.Setting.Interface
+@inherits DataVanceBasePage
+@inject NavigationManager Nav
+@inject ISystemSettingsService SettingsService
+
+<div class="container mt-4 text-end" dir="rtl">
+    <div class="d-flex justify-content-between align-items-center">
+        <h3>إضافة رصيد افتتاحي</h3>
+        @if (!string.IsNullOrEmpty(CompanyName))
+        {
+            <span class="badge bg-light text-dark border p-2">@CompanyName</span>
+        }
+    </div>
+    <hr />
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-primary text-white">البيانات الأساسية</div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <label class="fw-bold">تاريخ الرصيد</label>
+                    <input type="date" class="form-control" @bind="Command.OpeningDate" />
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="fw-bold">الفرع</label>
+                    <select class="form-select border-primary" @bind="Command.BranchId">
+                        <option value="@Guid.Empty">-- اختر الفرع --</option>
+                        @foreach (var b in Branches)
+                        {
+                            <option value="@b.Id">@b.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="fw-bold">العملة</label>
+                    @* <select class="form-select" @bind="Command.CurrencyId" @onchange="OnCurrencyChanged">
+                        <option value="@Guid.Empty">-- اختر العملة --</option>
+                        @foreach (var c in Currencies)
+                        {
+                            <option value="@c.Id">@c.Code - @c.Name</option>
+                        }
+                    </select> *@
+                   <select class="form-select border-primary" value="@Command.CurrencyId" @onchange="OnCurrencyChanged">
+    <option value="@Guid.Empty">-- اختر العملة --</option>
+    @foreach (var c in Currencies)
+    {
+        <option value="@c.Id">@c.Code - @c.Name</option>
+    }
+</select>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="fw-bold">سعر الصرف</label>
+                    <input type="number" class="form-control" @bind="Command.ExchangeRate" step="0.00001" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-responsive shadow-sm rounded">
+        <table class="table table-bordered align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 45%">الحساب (التحليلي)</th>
+                    <th>مدين</th>
+                    <th>دائن</th>
+                    <th style="width: 50px"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var line in Command.Lines)
+                {
+                    <tr>
+                        <td>
+                            <select class="form-select select2-style" @bind="line.AccountId">
+                                <option value="@Guid.Empty">-- اختر الحساب من الشجرة --</option>
+                                @foreach (var acc in Accounts)
+                                {
+                                    <option value="@acc.Id">@acc.Code - @acc.Name</option>
+                                }
+                            </select>
+                        </td>
+                        <td>
+                            <input type="number" class="form-control text-success fw-bold" 
+                                   @bind="line.Debit" @bind:event="oninput" 
+                                   disabled="@(line.Credit > 0)" />
+                        </td>
+                        <td>
+                            <input type="number" class="form-control text-danger fw-bold" 
+                                   @bind="line.Credit" @bind:event="oninput" 
+                                   disabled="@(line.Debit > 0)" />
+                        </td>
+                        <td>
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => Command.Lines.Remove(line)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="fw-bold bg-light">
+                    <td class="text-center">الإجمالي</td>
+                    <td class="text-success fs-5">@Command.TotalDebit.ToString("N2")</td>
+                    <td class="text-danger fs-5">@Command.TotalCredit.ToString("N2")</td>
+                    <td><button class="btn btn-primary btn-sm w-100" @onclick="AddLine">+</button></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    @if (!Command.IsBalanced && Command.Lines.Any())
+    {
+        <div class="alert alert-info d-flex align-items-center shadow-sm">
+            <i class="bi bi-info-circle-fill me-2"></i>
+            <div>
+                المستند غير متزن (الفرق: @(Math.Abs(Command.TotalDebit - Command.TotalCredit).ToString("N2"))). 
+                <strong>سيتم ترحيل الفرق آلياً إلى حساب التسوية المعتمد في الإعدادات.</strong>
+            </div>
+        </div>
+    }
+
+    <div class="mt-4 mb-5">
+        @* <button class="btn btn-success btn-lg px-5 shadow" @onclick="SaveDocument"
+                disabled="@(isSaving || Command.BranchId == Guid.Empty || Command.CurrencyId == Guid.Empty)">
+            @if (isSaving)
+            {
+                <span class="spinner-border spinner-border-sm"></span> <span>جاري الحفظ...</span>
+            }
+            else
+            {
+                <i class="bi bi-save"></i> <span>حفظ وتوليد القيود</span>
+            }
+        </button> *@
+        <button type="button" class="btn btn-success" @onclick="SaveDocument"
+                disabled="@IsLoading">
+            @if (IsLoading)
+            {
+                <span class="spinner-border spinner-border-sm"></span>
+            }
+            حفظ المستند
+        </button>
+        <button class="btn btn-outline-secondary btn-lg ms-2" @onclick='() => Nav.NavigateTo("/accounting/opening-balances")'>إلغاء</button>
+    </div>
+</div>
+
+@code {
+    private CreateOpeningBalanceCommand Command;
+    private List<BranchDto> Branches = new();
+    private List<CurrencyDto> Currencies = new();
+    private List<AccountDto> Accounts = new();
+    private string CompanyName = "";
+    private bool isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 1. جلب البيانات من الإعدادات العامة
+        CompanyName = await SettingsService.GetSettingValueAsync("CompanyName") ?? "نظام داتا فانس";
+        var baseCurrencyId = await SettingsService.GetSettingValueAsync("BaseCurrency");
+
+        // 2. جلب البيانات الأساسية من السيرفر
+        Branches = await ExecuteAsync(new GetBranchesQuery(CompanyName));
+        Currencies = await ExecuteAsync(new GetCurrenciesQuery());
+        Accounts = await ExecuteAsync(new GetAccountsQuery()); // تأكد أنها تجلب حسابات الحركة فقط
+
+        // 3. تعيين القيم الافتراضية
+        if (!string.IsNullOrEmpty(baseCurrencyId) && Guid.TryParse(baseCurrencyId, out var cId))
+        {
+            Command.CurrencyId = cId;
+            var curr = Currencies.FirstOrDefault(x => x.Id == cId);
+            if (curr != null) Command.ExchangeRate = 1; // العملة المحلية دائماً 1
+        }
+
+        if (Branches.Any()) Command.BranchId = Branches.First().Id;
+
+        AddLine();
+    }
+
+    private void AddLine() => Command.Lines.Add(new OpeningBalanceLineDto());
+
+  
+   private async Task OnCurrencyChanged(ChangeEventArgs e)
+{
+    if (Guid.TryParse(e.Value?.ToString(), out var selectedId))
+    {
+        Command.CurrencyId = selectedId;
+        
+        // جلب العملة المختارة لتحديث الكود وسعر الصرف الافتراضي
+        var currency = Currencies.FirstOrDefault(c => c.Id == selectedId);
+        if (currency != null)
+        {
+            Command.CurrencyCode = currency.Code;
+            
+            // جلب العملة الأساسية من الإعدادات للمقارنة
+            var baseCurrencyId = await SettingsService.GetSettingValueAsync("BaseCurrency");
+            
+            // إذا كانت العملة المختارة هي العملة المحلية، ثبت سعر الصرف على 1
+            if (baseCurrencyId == selectedId.ToString())
+                Command.ExchangeRate = 1;
+        }
+    }
+}
+
+    private async Task SaveDocument()
+    {
+        if (IsLoading) return; // منع التكرار
+
+        try
+        {
+            // تأكد من تعبئة البيانات الإلزامية قبل الإرسال [cite: 2026-03-01]
+            if (Command.BranchId == Guid.Empty || Command.CurrencyId == Guid.Empty)
+            {
+                StatusService.ShowMessage("يرجى اختيار الفرع والعملة أولاً", true);
+                return;
+            }
+
+            var selectedCurrency = Currencies.FirstOrDefault(c => c.Id == Command.CurrencyId);
+            if (selectedCurrency != null) Command.CurrencyCode = selectedCurrency.Code;
+
+            // تنفيذ الإرسال وانتظار النتيجة
+            var resultId = await ExecuteAsync<Guid>(Command, "تم الحفظ بنجاح");
+
+            if (resultId != Guid.Empty)
+            {
+                Nav.NavigateTo("/accounting/opening-balances");
+            }
+        }
+        catch (Exception ex)
+        {
+            // هذه السطور ستخبرك بالخطأ الحقيقي في كونسول المتصفح (F12)
+            Console.WriteLine($"Error Type: {ex.GetType().Name}");
+            Console.WriteLine($"Message: {ex.Message}");
+            StatusService.ShowMessage("حدث خطأ غير متوقع أثناء الحفظ", true);
+        }
+    }
+       
+}
+

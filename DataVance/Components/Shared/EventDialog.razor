@@ -1,0 +1,183 @@
+﻿@inherits DataVanceBasePage
+
+@using DataVance.Application.Features.EventManagement.Commands
+@using DataVance.Application.Features.EventManagement.Queries
+@using DataVance.Application.Features.EventManagement.DTOs
+@using DataVance.Application.Security.Queries
+@using DataVance.Domain.Entities.Enums
+@using DataVance.Domain.Entities.EventSystem
+@using DataVance.Domain.Entities.SecuritySystem
+@using MediatR
+<div class="o_dialog_mask">
+    <div class="o_dialog modal-content" style="width: 600px;">
+        <div class="modal-header">
+            <h4 class="modal-title">ط¥ط¯ط§ط±ط© @Type</h4>
+            <button type="button" class="close" @onclick="@(() => OnClose.InvokeAsync(false))">&times;</button>
+        </div>
+        <div class="modal-body o_form_view">
+            @if (Type == "Event")
+            {
+                <label>ط§ظ„ط§ط³ظ…</label>
+            
+                <input class="o_input" @bind="eventCmd.DisplayName" />
+                <label>ط§ظ„ظƒظˆط¯</label>
+
+                <input class="o_input" @bind="eventCmd.Code" />
+                <label>ط§ظ„ظ…ظˆط¯ظٹظˆظ„</label>
+
+                <input class="o_input" @bind="eventCmd.Module" />
+                <label><input type="checkbox" @bind="eventCmd.IsActive" /> ظ†ط´ط·</label>
+            }
+            else if (Type == "Trigger")
+            {
+                <label>ط§ظ„ط¹ظ…ظ„ظٹط© (Command)</label>
+                <select class="o_input" @bind="triggerCmd.OperationCode">
+                    <option value="">-- ط§ط®طھط± ط§ظ„ط¹ظ…ظ„ظٹط© --</option>
+                    @foreach (var c in AvailableCommands)
+                    {
+                        <option value="@c">@c</option>
+                    }
+                </select>
+                <label>ط§ظ„ط­ط¯ط«</label>
+                <select class="o_input" @bind="triggerCmd.SystemEventId">
+                    <option value="">-- ط§ط®طھط± ط§ظ„ط¹ظ…ظ„ظٹط© --</option>
+                    @foreach (var e in SystemEvents)
+                    {
+                        <option value="@e.Id">@e.DisplayName</option>
+                    }
+                </select>
+                <label>ط§ظ„طھط±طھظٹط¨</label>
+
+                <input type="number" class="o_input" @bind="triggerCmd.ExecutionOrder" />
+
+            }
+            else if (Type == "Permission")
+            {
+                <label>ID ط§ظ„ظ…ط³طھظ‡ط¯ظپ (User/Role Guid)</label>
+            
+                <input class="o_input" @bind="permissionCmd.TargetId" />
+                <label>ظ†ظˆط¹ ط§ظ„ظ‡ط¯ظپ</label>
+                <select class="o_input" @bind="permissionCmd.TargetType">
+                    <option value="@PermissionTarget.User">ظ…ط³طھط®ط¯ظ…</option>
+                    <option value="@PermissionTarget.Role">ط¯ظˆط± (Role)</option>
+                    <option value="@PermissionTarget.Group">ظ…ط¬ظ…ظˆط¹ظ‡ (Group)</option>
+                </select>
+                <label>ط§ظ„ط­ط¯ط«</label>
+                <select class="o_input" @bind="permissionCmd.SystemEventId">
+                    @foreach (var e in SystemEvents)
+                    {
+                        <option value="@e.Id">@e.DisplayName</option>
+                    }
+                </select>
+                <label>ط§ظ„ظپط±ط¹ (Guid - ط§ط®طھظٹط§ط±ظٹ)</label>
+
+                <input class="o_input" @bind="permissionCmd.BranchId" />
+                <label>ط§ظ„ظ…ط®ط²ظ† (Guid - ط§ط®طھظٹط§ط±ظٹ)</label>
+
+                <input class="o_input" @bind="permissionCmd.WarehouseId" />
+                <label>ط§ظ„ط­ط¯ ط§ظ„ط£ظ‚طµظ‰ ظ„ظ„ظ…ط¨ظ„ط؛ (Max Amount)</label>
+
+                <input type="number" class="o_input" @bind="permissionCmd.MaxAmount" />
+                <label><input type="checkbox" @bind="permissionCmd.IsGranted" /> ظ…ط³ظ…ظˆط­</label>
+            }
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" @onclick="HandleSave">ط­ظپط¸ ط§ظ„ط¨ظٹط§ظ†ط§طھ</button>
+            <button class="btn btn-secondary" @onclick="@(() => OnClose.InvokeAsync(false))">ط¥ظ„ط؛ط§ط،</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Type { get; set; } = "";
+    [Parameter] public object? Model { get; set; }
+    [Parameter] public EventCallback<bool> OnClose { get; set; }
+
+    private List<string> AvailableCommands = new();
+    private List<SystemEventDto> SystemEvents = new();
+
+    // ط§ظ„ظƒظˆظ…ط§ظ†ط¯ط² ط§ظ„ظ…ط­ط¯ط«ط© ط¨ظ€ set ظ„طھظ‚ط¨ظ„ ط§ظ„ظ€ Binding
+    private UpsertSystemEventCommand eventCmd = new();
+    private UpsertTriggerCommand triggerCmd = new();
+    private UpsertPermissionCommand permissionCmd = new(); // طھط£ظƒط¯ ظ…ظ† ط¨ظ†ط§ط، ظ‡ط°ط§ ط§ظ„ظ€ Command
+
+    protected override async Task OnInitializedAsync()
+    {
+        var res = await ExecuteAsync(new GetEventDashboardQuery());
+        AvailableCommands = res.AvailableCommands;
+        SystemEvents = res.Events;
+    }
+
+ 
+    protected override void OnParametersSet()
+    {
+        if (Model == null)
+        {
+            // ط¥ط°ط§ ظƒط§ظ† Model ظپط§ط±ط؛ط§ظ‹طŒ ظپظ‡ط°ط§ ظٹط¹ظ†ظٹ "ط¥ط¶ط§ظپط© ط¬ط¯ظٹط¯ط©" ظپظ†ظ‚ظˆظ… ط¨طھطµظپظٹط± ط§ظ„ظƒظˆظ…ط§ظ†ط¯ط²
+            eventCmd = new();
+            triggerCmd = new();
+            permissionCmd = new();
+            return;
+        }
+
+        if (Type == "Event" && Model is SystemEventDto e)
+        {
+            eventCmd = new UpsertSystemEventCommand
+            {
+                Id = e.Id,
+                Code = e.Code,
+                DisplayName = e.DisplayName,
+                Module = e.Module,
+                IsActive = e.IsActive
+            };
+        }
+        else if (Type == "Trigger" && Model is EventTriggerDto t)
+        {
+            triggerCmd = new UpsertTriggerCommand
+            {
+                Id = t.Id,
+                OperationCode = t.OperationCode,
+                SystemEventId = t.SystemEventId,
+                ExecutionOrder = t.ExecutionOrder
+            };
+        }
+  
+        else if (Type == "Permission" && Model is EventPermissionDto p)
+        {
+            permissionCmd = new UpsertPermissionCommand
+            {
+                Id = p.Id,
+                TargetId = p.TargetId,
+                TargetType = Enum.Parse<PermissionTarget>(p.TargetType),
+                SystemEventId = p.SystemEventId,
+                BranchId = p.BranchId,
+                WarehouseId = p.WarehouseId,
+                IsGranted = p.IsGranted,
+                MaxAmount = p.MaxAmount // ط§ظ„ط­ظ‚ظ„ ط§ظ„ظ…ط§ظ„ظٹ ط§ظ„ط°ظٹ ط£ط¶ظپطھظ‡
+            };
+        }
+    }
+    // private async Task HandleSave()
+    // {
+    //     if (Type == "Event") await ExecuteAsync(eventCmd);
+    //     else if (Type == "Trigger") await ExecuteAsync(triggerCmd);
+    //     else if (Type == "Permission") await ExecuteAsync(permissionCmd);
+    //     await OnClose.InvokeAsync(true);
+    // }
+    private async Task HandleSave()
+    {
+        Console.WriteLine($"[DEBUG] HandleSave Started for Type: {Type}");
+
+        if (Type == "Trigger")
+        {
+            Console.WriteLine($"[DEBUG] Sending Trigger: Op={triggerCmd.OperationCode}, EventId={triggerCmd.SystemEventId}");
+            var result = await ExecuteAsync(triggerCmd);
+            Console.WriteLine($"[DEBUG] Save Result ID: {result}");
+        }
+        else if (Type == "Event") await ExecuteAsync(eventCmd);
+        else if (Type == "Permission") await ExecuteAsync(permissionCmd);
+
+        await OnClose.InvokeAsync(true);
+    }
+}
+

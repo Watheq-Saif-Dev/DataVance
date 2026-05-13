@@ -1,0 +1,130 @@
+﻿.entry-container {
+        padding: 30px;
+        max-width: 1200px;
+        margin: auto;
+        background: #fff;
+    }
+
+    .header-banner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #f0f0f0;
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+
+    .entry-header {
+        display: grid;
+        grid-template-columns: 1fr 1fr 2fr;
+        gap: 20px;
+        background: #f9f9f9;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 30px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #555;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+
+    .lines-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 15px;
+    }
+
+        .lines-table th {
+            background: #f4f4f4;
+            padding: 12px;
+            text-align: right;
+            border-bottom: 2px solid #eee;
+        }
+
+        .lines-table td {
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+    .amount-input {
+        text-align: center;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .btn-remove {
+        background: #ffeded;
+        color: #d32f2f;
+        border: none;
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        cursor: pointer;
+    }
+
+    .btn-add-line {
+        background: none;
+        border: 1px dashed #007bff;
+        color: #007bff;
+        padding: 10px 20px;
+        cursor: pointer;
+        border-radius: 4px;
+        width: 100%;
+        font-weight: bold;
+    }
+
+    .entry-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 40px;
+        padding: 20px;
+        background: #343a40;
+        color: white;
+        border-radius: 8px;
+        margin-top: 20px;
+    }
+
+    .summary-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .total-val {
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+
+    .unbalanced {
+        color: #ff6b6b;
+    }
+
+    .balanced {
+        color: #51cf66;
+    }
+
+    .btn-success {
+        background: #28a745;
+        color: white;
+        padding: 10px 25px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+        .btn-success:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }

@@ -1,0 +1,227 @@
+﻿@page "/finance/setup/chart-of-accounts"
+
+@using DataVance.Application.Features.Accounts.Commands
+@using DataVance.Application.Features.Accounts.DTOs
+@using DataVance.Application.Features.Accounts.Queries
+@using DataVance.Application.Features.Currencies.DTOs
+@using DataVance.Application.Features.Currencies.Queries
+@using DataVance.Components.Shared.AccountCompenets
+@inherits DataVanceBasePage
+
+<div class="tree-container">
+    <div class="tree-header">
+        <h3>دليل الحسابات</h3>
+        <button class="btn btn-primary" @onclick="() => OpenAddModal(null)">+ إضافة حساب رئيسي</button>
+    </div>
+
+    <div class="accounts-tree">
+        @if (RootAccounts == null)
+        {
+            <p>جاري تحميل الدليل...</p>
+        }
+        else
+        {
+            <ul>
+                @foreach (var account in RootAccounts)
+                {
+                    <AccountNode Node="account" OnAddChild="OpenAddModal" OnEdit="OpenEditModal" OnDisable="ToggleAccountStatus" />
+                }
+            </ul>
+        }
+    </div>
+</div>
+
+@if (ShowModal)
+{
+    <div class="modal-overlay">
+        <div class="modal-content">
+            <h4>@(IsEditMode ? "تعديل الحساب: " + NewAccount.Code : "إضافة حساب جديد")</h4>
+            <input type="text" @bind="NewAccount.Code" class="form-control" disabled="@IsEditMode" />
+            <hr />
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>كود الحساب (مقترح)</label>
+                    <input type="text" @bind="NewAccount.Code" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>اسم الحساب</label>
+                    <input type="text" @bind="NewAccount.Name" class="form-control" />
+                </div>
+                <div class="form-group">
+                    <label>نوع الحساب</label>
+                    <select @bind="NewAccount.Type" class="form-control" disabled="@(SelectedParent != null)">
+                        <option value="1">أصول</option>
+                        <option value="2">خصوم</option>
+                        <option value="3">حقوق ملكية</option>
+                        <option value="4">إيرادات</option>
+                        <option value="5">مصروفات</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold">العملة الافتراضية</label>
+                        <select @bind="NewAccount.DefaultCurrencyId" class="form-select">
+                            <option value="">-- اختر عملة (اختياري) --</option>
+                            @foreach (var curr in AvailableCurrencies)
+                            {
+                                <option value="@curr.Id">@curr.Name (@curr.Code)</option>
+                            }
+                        </select>
+                        <small class="text-muted">هذه العملة ستظهر تلقائياً عند اختيار الحساب في القيود.</small>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <label class="fw-bold d-block">العملات المسموح بها</label>
+                        <div class="allowed-currencies-box border rounded p-2" style="max-height: 120px; overflow-y: auto; background: #f9f9f9;">
+                            @foreach (var curr in AvailableCurrencies)
+                            {
+                                <div class="form-check">
+                                    <input class="form-check-checkbox" type="checkbox"
+                                           id="curr_@curr.Id"
+                                           checked="@NewAccount.AllowedCurrencyIds.Contains(curr.Id)"
+                                           @onchange="(e) => ToggleCurrencySelection(curr.Id, e.Value)" />
+                                    <label class="form-check-label" for="curr_@curr.Id">
+                                        @curr.Name (@curr.Symbol)
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                        <small class="text-muted">إذا لم يتم اختيار أي عملة، سيقبل الحساب كل العملات.</small>
+                    </div>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label>
+                        <input type="checkbox" @bind="NewAccount.AllowPosting" /> يسمح بالترحيل (حساب فرعي)
+                    </label>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-success" @onclick="SaveAccount">حفظ الحساب</button>
+                <button class="btn btn-secondary" @onclick="() => ShowModal = false">إلغاء</button>
+            </div>
+
+        </div>
+   
+    </div>
+}
+
+
+@code {
+    private List<AccountTreeDto>? RootAccounts;
+    private bool ShowModal = false;
+    private AccountTreeDto? SelectedParent;
+    private bool IsEditMode = false;
+    private List<CurrencyDto> AvailableCurrencies = new();
+    // نموذج بيانات محلي لربط حقول الإدخال في الواجهة
+    private AccountFormModel NewAccount = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTree();
+        AvailableCurrencies = await ExecuteAsync(new GetCurrenciesQuery());
+    }
+
+    private async Task LoadTree()
+    {
+        RootAccounts = await ExecuteAsync(new GetAccountsTreeQuery());
+    }
+
+    private async Task OpenAddModal(Guid? parentId)
+    {
+        SelectedParent =  parentId.HasValue ? FindInTree(RootAccounts, parentId.Value) : null;
+        
+        string nextCode = await ExecuteAsync(new GetNextAccountCodeQuery(parentId));
+        NewAccount = new AccountFormModel {
+            ParentId = parentId,
+            Code = nextCode,
+            Type = SelectedParent?.Type ?? 1,
+            AllowPosting = true, // افتراضياً الحساب الجديد فرعي
+            Name = ""
+        };
+        
+        ShowModal = true;
+    }
+    private void ToggleCurrencySelection(Guid currencyId, object? isChecked)
+    {
+        if ((bool)(isChecked ?? false))
+        {
+            if (!NewAccount.AllowedCurrencyIds.Contains(currencyId))
+                NewAccount.AllowedCurrencyIds.Add(currencyId);
+        }
+        else
+        {
+            NewAccount.AllowedCurrencyIds.Remove(currencyId);
+        }
+    }
+
+    private void OpenEditModal(AccountTreeDto account)
+    {
+        IsEditMode = true;
+        SelectedParent = null; // في التعديل لا نحتاج لتحديد أب جديد
+
+        NewAccount = new AccountFormModel
+        {
+            Id = account.Id,
+            Code = account.Code, // الكود عادة لا يعدل في الأنظمة المالية
+            Name = account.Name,
+            Type = account.Type,
+            AllowPosting = account.AllowPosting
+        
+            
+        };
+
+        ShowModal = true;
+    }
+    private async Task SaveAccount()
+    {
+        if (IsEditMode)
+        {
+            await ExecuteAsync(new UpdateAccountCommand(NewAccount.Id, NewAccount.Name, NewAccount.AllowPosting));
+        }
+        else
+        {
+            var command = new CreateAccountCommand(NewAccount.Code, NewAccount.Name, NewAccount.Type, NewAccount.ParentId, NewAccount.AllowPosting,NewAccount.DefaultCurrencyId,NewAccount.AllowedCurrencyIds);
+            await ExecuteAsync(command);
+        }
+
+        ShowModal = false;
+        await LoadTree();
+    }
+    private async Task ToggleAccountStatus(Guid id)
+    {
+        // استدعاء أمر التعطيل
+        await ExecuteAsync(new DisableAccountCommand(id));
+        await LoadTree();
+    }
+    
+
+
+    private AccountTreeDto? FindInTree(List<AccountTreeDto>? nodes, Guid id)
+    {
+        if (nodes == null) return null;
+        foreach (var node in nodes)
+        {
+            if (node.Id == id) return node;
+            var found = FindInTree(node.Children, id);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    // كلاس بسيط لربط البيانات مؤقتاً قبل إرسالها للـ Backend
+    public class AccountFormModel
+    {
+        public Guid Id { get; set; }
+        public Guid? ParentId { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int Type { get; set; } = 1;
+        public bool AllowPosting { get; set; } = true;
+
+        public Guid? DefaultCurrencyId { get; set; }
+        public List<Guid> AllowedCurrencyIds { get; set; } = new();
+    }
+}
+
+

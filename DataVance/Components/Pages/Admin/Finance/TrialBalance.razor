@@ -1,0 +1,92 @@
+﻿@page "/finance/reports/trial-balance"
+@using DataVance.Application.Features.FinancialReports.DTOs
+@using DataVance.Application.Features.FinancialReports.Queries
+@using DataVance.Application.FinanceSystem.DTO
+@using DataVance.Application.FinanceSystem.Query
+@inherits DataVanceBasePage
+
+<div class="report-container">
+    <div class="filter-bar">
+        <h3>ميزان المراجعة</h3>
+        <div class="filters">
+            <input type="date" @bind="FromDate" class="input-control" />
+            <input type="date" @bind="ToDate" class="input-control" />
+            <button class="btn btn-primary" @onclick="LoadReport">تحديث التقرير</button>
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="skeleton-loader">جاري جلب البيانات المالية...</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="tb-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">كود الحساب</th>
+                        <th rowspan="2">اسم الحساب</th>
+                        <th colspan="2">رصيد أول المدة</th>
+                        <th colspan="2">حركات الفترة</th>
+                        <th colspan="2">رصيد الختام</th>
+                    </tr>
+                    <tr>
+                        <th>مدين</th>
+                        <th>دائن</th>
+                        <th>مدين</th>
+                        <th>دائن</th>
+                        <th>مدين</th>
+                        <th>دائن</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in ReportData)
+                    {
+                        <tr>
+                            <td>@row.AccountCode</td>
+                            <td class="text-start">@row.AccountName</td>
+                            <td class="amount">@row.OpeningDebit.ToString("N2")</td>
+                            <td class="amount">@row.OpeningCredit.ToString("N2")</td>
+                            <td class="amount">@row.PeriodDebit.ToString("N2")</td>
+                            <td class="amount">@row.PeriodCredit.ToString("N2")</td>
+                            <td class="amount highlight">@row.ClosingDebit.ToString("N2")</td>
+                            <td class="amount highlight">@row.ClosingCredit.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="2">الإجماليات</td>
+                        <td>@ReportData.Sum(x => x.OpeningDebit).ToString("N2")</td>
+                        <td>@ReportData.Sum(x => x.OpeningCredit).ToString("N2")</td>
+                        <td>@ReportData.Sum(x => x.PeriodDebit).ToString("N2")</td>
+                        <td>@ReportData.Sum(x => x.PeriodCredit).ToString("N2")</td>
+                        <td>@ReportData.Sum(x => x.ClosingDebit).ToString("N2")</td>
+                        <td>@ReportData.Sum(x => x.ClosingCredit).ToString("N2")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+</div>
+
+
+@code {
+    private DateTime FromDate = new DateTime(DateTime.Now.Year, 1, 1);
+    private DateTime ToDate = DateTime.Now;
+    private List<TrialBalanceDto> ReportData = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadReport();
+    }
+
+    private async Task LoadReport()
+    {
+        // استدعاء الهاندلر الذي يستخدم Dapper
+        var result = await ExecuteAsync(new GetTrialBalanceQuery(Guid.Empty, Guid.Empty, FromDate, ToDate), "");
+        if (result != null) ReportData = result;
+    }
+}
+

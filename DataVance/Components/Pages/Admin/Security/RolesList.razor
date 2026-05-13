@@ -1,0 +1,52 @@
+﻿@* @page "/security/roles"
+@using DataVance.Application.Security.Queries
+@using MediatR
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>إدارة أدوار النظام</h3>
+        <button class="btn btn-primary">إضافة دور جديد +</button>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>اسم الدور</th>
+                        <th class="text-center">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Roles == null)
+                    {
+                        <tr><td colspan="2">جاري تحميل الأدوار...</td></tr>
+                    }
+                    else
+                    {
+                        foreach (var role in Roles)
+                        {
+                            <tr>
+                                <td>@role.Name</td>
+                                <td class="text-center">
+                                    <a href="/security/permissions/Role/@role.Id" class="btn btn-sm btn-info">
+                                        <i class="oi oi-lock-locked"></i> إدارة الصلاحيات
+                                    </a>
+                                    <button class="btn btn-sm btn-danger ms-2">حذف</button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<RoleDto>? Roles;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Roles = await ExecuteAsync(new GetRolesQuery());
+    }
+} *@

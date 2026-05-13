@@ -1,0 +1,105 @@
+﻿@* @page "/admin/permissions/{UserId:guid}"
+@inject IPermissionService PermissionService
+@inject IIdentityService IdentityService
+
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/admin/permissions-list">قائمة الصلاحيات</a></li>
+            <li class="breadcrumb-item active">تعديل صلاحيات المستخدم</li>
+        </ol>
+    </nav>
+
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">تعديل صلاحيات: @_userName</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <label class="form-label fw-bold">إضافة صلاحية جديدة من النظام:</label>
+                    <select class="form-select" @bind="_selectedPermission">
+                        <option value="">-- اختر من قائمة صلاحيات النظام --</option>
+                        @foreach (var perm in SystemPermissions.All)
+                        {
+                            <option value="@perm.Key">@perm.Key (@perm.Value)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button class="btn btn-success w-100" @onclick="AddPermission">
+                        <i class="bi bi-plus-circle"></i> إضافة الصلاحية
+                    </button>
+                </div>
+            </div>
+
+            <hr />
+
+            <h6>الصلاحيات الممنوحة حالياً:</h6>
+            <div class="list-group mt-3">
+                @foreach (var perm in _userPermissions)
+                {
+                    <div class="list-group-item d-flex justify-content-between align-items-center animate__animated animate__fadeIn">
+                        <div>
+                            <i class="bi bi-check2-all text-success me-2"></i>
+                            <strong>@perm</strong>
+                            <span class="text-muted small ms-2">- @GetDescription(perm)</span>
+                        </div>
+                        <button class="btn btn-outline-danger btn-sm" @onclick="() => RemovePermission(perm)">
+                            <i class="bi bi-trash"></i> حذف
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid UserId { get; set; }
+    private string _userName = "";
+    private string _selectedPermission = "";
+    private List<string> _userPermissions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _userName = await IdentityService.GetUserNameAsync(UserId) ?? "User";
+        await LoadPermissions();
+    }
+
+    private async Task LoadPermissions() =>
+        _userPermissions = await PermissionService.GetPermissionsByUserIdAsync(UserId);
+
+    private string GetDescription(string key) =>
+        SystemPermissions.All.ContainsKey(key) ? SystemPermissions.All[key] : "صلاحية مخصصة";
+
+    private async Task AddPermission()
+    {
+        if (!string.IsNullOrEmpty(_selectedPermission) && !_userPermissions.Contains(_selectedPermission))
+        {
+            await PermissionService.AddPermissionAsync(UserId, _selectedPermission);
+            await LoadPermissions();
+            _selectedPermission = "";
+        }
+    }
+
+    private async Task RemovePermission(string name)
+    {
+        await PermissionService.RemovePermissionAsync(UserId, name);
+        await LoadPermissions();
+    }
+
+    // كلاس الصلاحيات الثابت لتوحيد المفاهيم في النظام
+    public static class SystemPermissions
+    {
+        public static Dictionary<string, string> All = new() {
+            { "Invoices.Create", "إضافة فاتورة جديدة" },
+            { "Invoices.Delete", "حذف فاتورة" },
+            { "Warehouse.Transfer", "تحويل مخزني" },
+            { "Reports.View", "عرض التقارير المالية" },
+            { "Users.Manage", "إدارة المستخدمين" },
+             { "Warehouse.Create", "إضافة مخزن جديدة" }
+
+        };
+    }
+} *@

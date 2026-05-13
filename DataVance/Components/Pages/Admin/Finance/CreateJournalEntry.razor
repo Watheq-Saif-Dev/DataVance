@@ -1,0 +1,163 @@
+﻿@* @page "/finance/journals/new"
+@using DataVance.Application.FinanceSystem.Commands
+@using DataVance.Application.FinanceSystem.Commands.JournalCommand
+@using DataVance.Application.FinanceSystem.DTO
+@using DataVance.Application.FinanceSystem.Query
+@using DataVance.Application.Common.Interfaces
+@inject IJournalNumberGenerator Generator
+@inherits DataVanceBasePage
+
+<div class="entry-container">
+    <div class="header-banner">
+        <h2>إنشاء قيد يومية جديد</h2>
+        <div class="actions">
+            <button class="btn btn-success" @onclick="SaveEntry" disabled="@(!IsBalanced || IsLoading)">
+                @(IsLoading ? "جاري الحفظ..." : "ترحيل القيد")
+            </button>
+            <a href="/finance/journals" class="btn btn-outline">إلغاء</a>
+        </div>
+    </div>
+
+    <div class="entry-header">
+        <div class="form-group">
+            <label>تاريخ القيد</label>
+            <input type="date" @bind="Header.Date" class="form-control" />
+        </div>
+        <div class="form-group">
+            <label>العملة</label>
+            <select @bind="Header.Currency" class="form-control">
+                <option value="USD">USD - دولار أمريكي</option>
+                <option value="SAR">SAR - ريال سعودي</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>الوصف العام</label>
+            <input type="text" @bind="Header.Description" class="form-control" placeholder="وصف موجز للعملية..." />
+        </div>
+    </div>
+
+    <div class="lines-section">
+        <table class="lines-table">
+            <thead>
+                <tr>
+                    <th style="width: 30%">الحساب</th>
+                    <th style="width: 20%">البيان (وصف السطر)</th>
+                    <th style="width: 20%">مركز التكلفة</th>
+                    <th style="width: 15%">مدين</th>
+                    <th style="width: 15%">دائن</th>
+                    <th style="width: 5%"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var line in Lines)
+                {
+                    <tr>
+                        <td>
+                            <select @bind="line.AccountId" class="form-control select-account">
+                                <option value="">-- اختر الحساب --</option>
+                                @foreach (var acc in AvailableAccounts)
+                                {
+                                    <option value="@acc.Id">@acc.Code - @acc.Name</option>
+                                }
+                            </select>
+                        </td>
+                        <td>
+                            <input type="text" @bind="line.Description" class="form-control" placeholder="وصف تفصيلي للسطر..." />
+                        </td>
+                        <td>
+                            <input type="text" @bind="line.CostCenterId" class="form-control" placeholder="اختياري" />
+                        </td>
+                        <td>
+                            <input type="number" @bind="line.Debit" @bind:event="oninput" @onchange="CalculateTotals" class="form-control amount-input" />
+                        </td>
+                        <td>
+                            <input type="number" @bind="line.Credit" @bind:event="oninput" @onchange="CalculateTotals" class="form-control amount-input" />
+                        </td>
+                        <td>
+                            <button class="btn-remove" @onclick="() => RemoveLine(line)">×</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <button class="btn-add-line" @onclick="AddLine">+ إضافة سطر جديد</button>
+    </div>
+
+    <div class="entry-footer">
+        <div class="summary-item">
+            <span>إجمالي المدين:</span>
+            <span class="total-val">@TotalDebit.ToString("N2")</span>
+        </div>
+        <div class="summary-item">
+            <span>إجمالي الدائن:</span>
+            <span class="total-val">@TotalCredit.ToString("N2")</span>
+        </div>
+        <div class="summary-item @(IsBalanced ? "balanced" : "unbalanced")">
+            <span>الفارق:</span>
+            <span class="total-val">@((TotalDebit - TotalCredit).ToString("N2"))</span>
+        </div>
+    </div>
+</div>
+
+
+
+@code {
+    private EntryHeaderModel Header = new() { Date = DateTime.Now, Currency = "USD" };
+    private List<EntryLineModel> Lines = new() { new(), new() }; // نبدأ بسطرين افتراضياً
+    private List<AccountDto> AvailableAccounts = new(); // يتم جلبها من الـ Repository
+
+    private decimal TotalDebit => Lines.Sum(x => x.Debit);
+    private decimal TotalCredit => Lines.Sum(x => x.Credit);
+    private bool IsBalanced => TotalDebit > 0 && TotalDebit == TotalCredit;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // جلب قائمة الحسابات من قاعدة البيانات
+        var result = await ExecuteAsync(new GetAccountsQuery());
+        if (result != null) AvailableAccounts = result;
+    }
+
+    private void AddLine() => Lines.Add(new EntryLineModel());
+
+    private void RemoveLine(EntryLineModel line)
+    {
+        if (Lines.Count > 2) Lines.Remove(line);
+    }
+
+    private void CalculateTotals() => StateHasChanged();
+
+    private async Task SaveEntry()
+    {
+        // var command = new CreateJournalEntryCommand(
+        //     Header.Date,
+        //     Guid.Empty, سيتم جلبه من سياق المستخدم
+        //     Header.Currency,
+        //     1.0m,
+        //     Lines.Select(l => new CreateJournalEntryLineDto(l.AccountId, l.Debit, l.Credit, l.CostCenterId)).ToList()
+        // );
+        var entryNumber = await Generator.GenerateNextNumberAsync();
+        var command = new CreateJournalEntryCommand(
+        entryNumber,           // string EntryNumber
+        Header.Date,           // DateTime EntryDate
+        Guid.Empty,            // Guid BranchId (يستبدل بـ ID الفرع الحالي)
+        Guid.Empty,            // Guid FiscalYearId (يستبدل بـ ID السنة الحالية)
+        Guid.Empty,            // Guid FiscalPeriodId (يستبدل بـ ID الفترة الحالية)
+        Header.Currency,       // string Currency
+        1.0m,                  // decimal ExchangeRate
+        Lines.Select(l => new CreateJournalEntryLineDto(l.AccountId, l.Debit, l.Credit, l.CostCenterId,l.Description)).ToList() // List<Lines>
+    );
+
+        var result = await ExecuteAsync(command, "تم ترحيل القيد وتحديث الأرصدة بنجاح");
+        if (result != Guid.Empty)
+        {
+            // الانتقال لصفحة عرض القيود أو تصفير النموذج
+            Lines = new() { new(), new() };
+        }
+    }
+
+    // نماذج داخلية بسيطة للواجهة
+    public class EntryHeaderModel { public DateTime Date; public string Currency; public string Description; }
+    public class EntryLineModel { public Guid AccountId; public string Description { get; set; } = string.Empty; public decimal Debit; public decimal Credit; public Guid? CostCenterId; }
+} *@
+
+

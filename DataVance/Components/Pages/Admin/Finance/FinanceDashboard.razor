@@ -1,0 +1,69 @@
+﻿@page "/finance/dashboard"
+@using DataVance.Application.Features.FinancialReports.DTOs
+@using DataVance.Application.Features.FinancialReports.Queries
+@using DataVance.Application.FinanceSystem.DTO
+@using DataVance.Application.FinanceSystem.Query
+@inherits DataVanceBasePage
+
+<div class="dashboard-wrapper">
+    <div class="kpi-grid">
+        <div class="kpi-card info">
+            <span class="label">إجمالي السيولة</span>
+            <span class="value">@Data?.TotalLiquidity.ToString("N0")</span>
+        </div>
+        <div class="kpi-card warning">
+            <span class="label">مصروفات الشهر</span>
+            <span class="value">@Data?.TotalExpenses.ToString("N0")</span>
+        </div>
+        <div class="kpi-card success">
+            <span class="label">صافي الربح</span>
+            <span class="value">@Data?.NetProfit.ToString("N0")</span>
+        </div>
+    </div>
+
+    <div class="charts-section">
+        <div class="chart-container">
+            <h4>الأداء الشهري (إيرادات vs مصروفات)</h4>
+            <div class="bar-chart">
+                @foreach (var month in Data?.MonthlyChart ?? new())
+                {
+                    <div class="bar-group">
+                        <div class="bar revenue" style="height: @(CalculateHeight(month.Revenues))px"></div>
+                        <div class="bar expense" style="height: @(CalculateHeight(month.Expenses))px"></div>
+                        <span class="month-label">@month.MonthName</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="top-list">
+            <h4>أعلى 5 مصروفات هذا الشهر</h4>
+            @foreach (var exp in Data?.TopExpenses ?? new())
+            {
+                <div class="list-item">
+                    <span>@exp.AccountName</span>
+                    <span class="amount">@exp.Amount.ToString("N2")</span>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+
+@code {
+    private FinancialDashboardDto? Data;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Data = await ExecuteAsync(new GetFinancialDashboardQuery(Guid.Empty));
+    }
+
+    private int CalculateHeight(decimal value)
+    {
+        if (value == 0) return 0;
+        // منطق بسيط لتحويل الرقم لارتفاع بالبكسل (كحد أقصى 150px)
+        return (int)Math.Min(value / 1000, 150);
+    }
+}
+
+

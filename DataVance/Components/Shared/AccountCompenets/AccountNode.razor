@@ -1,0 +1,70 @@
+﻿@using DataVance.Application.Features.Accounts.DTOs
+<li>
+    <div class="node-item">
+        @if (Node.Children.Any())
+        {
+            <button class="btn-toggle" @onclick="ToggleExpand">
+                @(isExpanded ? "➖" : "➕")
+            </button>
+        }
+        else
+        {
+            <span class="spacer"></span> 
+        }
+        <span class="icon">@(Node.Children.Any() ? "📂" : "📄")</span>
+        <strong>@Node.Code</strong>
+        <span>@Node.Name</span>
+
+        @if (Node.AllowPosting)
+        {
+            <span class="badge-posting">حساب فرعي (ترحيل)</span>
+        }
+        else
+        {
+            <span class="badge-group">حساب رئيسي</span>
+        }
+
+        <div class="actions">
+            <button class="btn-action" @onclick="() => OnEdit.InvokeAsync(Node)">تعديل</button>
+        
+        @if (Node.IsActive)
+        {
+            <button class="btn-action text-danger" @onclick="() => OnDisable.InvokeAsync(Node.Id)">تعطيل</button>
+        }
+        else
+        {
+                <button class="btn-action text-danger" @onclick="() => OnDisable.InvokeAsync(Node.Id)">معطل</button>
+          
+        }
+        @if (!Node.AllowPosting)
+        {
+            <button class="btn-action" @onclick="() => OnAddChild.InvokeAsync(Node.Id)">+ ابن</button>
+        }
+    </div>
+    </div>
+    @if (Node.Children.Any() && isExpanded)
+    {
+        <ul class="nested-tree">
+            @foreach (var child in Node.Children)
+            {
+                <AccountNode Node="child"
+                             OnAddChild="OnAddChild"
+                             OnEdit="OnEdit"
+                             OnDisable="OnDisable" />
+            }
+        </ul>
+    }
+</li>
+
+
+@code {
+    [Parameter] public AccountTreeDto Node { get; set; }
+    [Parameter] public EventCallback<Guid?> OnAddChild { get; set; }
+    [Parameter] public EventCallback<Guid> OnDisable { get; set; }
+    [Parameter] public EventCallback<AccountTreeDto> OnEdit { get; set; }
+    private bool isExpanded = false;
+    private void ToggleExpand()
+    {
+        isExpanded = !isExpanded;
+    }
+}

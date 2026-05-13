@@ -1,0 +1,132 @@
+﻿.login-wrapper {
+    display: flex;
+    min-height: 100vh;
+    background-color: #f0f2f5;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* الجانب الأيسر الزخرفي */
+.login-aside {
+    flex: 1.1;
+    background: linear-gradient(135deg, #0d6efd 0%, #063970 100%);
+    padding: 4rem;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+    .login-aside::before {
+        content: "";
+        position: absolute;
+        width: 200%;
+        height: 200%;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="1" fill="white" fill-opacity="0.1"/></svg>');
+        opacity: 0.3;
+    }
+
+.aside-content {
+    position: relative;
+    z-index: 2;
+    max-width: 500px;
+}
+
+.feature-item {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+/* بطاقة تسجيل الدخول */
+.login-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 460px;
+    background: #ffffff;
+    padding: 3rem;
+    border-radius: 24px;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.brand-logo {
+    font-size: 3rem;
+    color: #0d6efd;
+    background: #e7f0ff;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 20px;
+    margin: 0 auto;
+}
+
+/* تحسين الحقول */
+.form-floating > .form-control:focus ~ label {
+    color: #0d6efd;
+    right: 0 !important;
+    left: auto !important;
+    transform-origin: top right !important;
+}
+.form-floating > label {
+    right: 0 !important;
+    left: auto !important;
+    text-align: right !important;
+    padding-right: 1.5rem !important; /* لترك مسافة بسيطة للأيقونة */
+}
+.input-group > .input-group-text {
+    border-top-right-radius: 0.5rem !important; /* عدل القيمة حسب الـ border-radius لديك */
+    border-bottom-right-radius: 0.5rem !important;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-left: 0 !important;
+}
+
+/* تعديل حواف الـ Select لتتناسق مع الأيقونة التي تسبقه */
+.input-group > .form-select {
+    border-top-left-radius: 0.5rem !important;
+    border-bottom-left-radius: 0.5rem !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    text-align: right !important;
+}
+
+
+
+
+
+.input-group {
+    direction: rtl !important;
+}
+.form-control, .form-select {
+    border-radius: 12px;
+    border: 1px solid #dee2e6;
+}
+
+    .form-control:focus, .form-select:focus {
+        box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.1);
+    }
+
+/* زر الدخول */
+.btn-primary {
+    background: #0d6efd;
+    transition: all 0.3s ease;
+}
+
+    .btn-primary:hover {
+        background: #0b5ed7;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(13, 110, 253, 0.2) !important;
+    }
+
+.x-small {
+    font-size: 0.78rem;
+    letter-spacing: 0.5px;
+}

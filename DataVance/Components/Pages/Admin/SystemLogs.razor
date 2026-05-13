@@ -1,0 +1,265 @@
+﻿@page "/admin/audit-logs"
+@inherits DataVanceBasePage
+@using DataVance.Application.AuditSystem.DTO
+@using DataVance.Application.AuditSystem.Query
+@inject IJSRuntime JS
+
+<div class="container-fluid p-4">
+    <div class="card sap-card position-relative">
+
+        @* Header *@
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3 border-bottom-0">
+            <h5 class="text-primary mb-0 fw-bold">
+                <i class="bi bi-shield-check me-2"></i> Audit Log Explorer | ط³ط¬ظ„ط§طھ ط§ظ„ظ†ط¸ط§ظ…
+            </h5>
+            <div>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="RefreshData" disabled="@_isLoading">
+                    <i class="bi bi-arrow-clockwise @(_isLoading ? "spin-icon" : "")"></i> طھط­ط¯ظٹط«
+                </button>
+            </div>
+        </div>
+
+        @* Filters *@
+        <div class="sap-filter-bar">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted fw-bold">ط¨ط­ط« ط¨ط§ظ„ظ…ط³طھط®ط¯ظ…</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white"><i class="bi bi-person"></i></span>
+                        @* ط§ظ„طھط؛ظٹظٹط±: ط§ط³طھط®ط¯ط§ظ… OnSearchInput ظ„طھطµظپظٹط© ظپظˆط±ظٹط© *@
+                        <input type="text" value="@searchUser" @oninput="OnSearchInput" class="form-control" placeholder="example@email.com..." />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted fw-bold">ط§ظ„ط¬ط¯ظˆظ„ / ط§ظ„ظƒظٹط§ظ†</label>
+                    <select class="form-select form-select-sm" @onchange="OnTableFilterChanged">
+                        <option value="">-- ط¬ظ…ظٹط¹ ط§ظ„ط¬ط¯ط§ظˆظ„ --</option>
+                        @foreach (var table in tableNames)
+                        {
+                            <option value="@table">@table</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted fw-bold">ظ†ظˆط¹ ط§ظ„ط¹ظ…ظ„ظٹط©</label>
+                    <select class="form-select form-select-sm" @onchange="OnActionFilterChanged">
+                        <option value="">-- ط§ظ„ظƒظ„ --</option>
+                        <option value="Create">ط¥ط¶ط§ظپط©</option>
+                        <option value="Update">طھط¹ط¯ظٹظ„</option>
+                        <option value="Delete">ط­ط°ظپ</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end justify-content-end">
+                    <span class="badge bg-light text-dark border">
+                        ط¥ط¬ظ…ط§ظ„ظٹ ط§ظ„ظ†طھط§ط¦ط¬: @(_paginatedResult?.TotalCount ?? 0)
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        @* Table Content *@
+        <div class="card-body p-0 position-relative" style="min-height: 400px;">
+            @if (_isLoading)
+            {
+                <div class="loading-overlay">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            }
+
+            <div class="table-responsive">
+                <table class="table table-hover sap-table mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">ط§ظ„طھظˆظ‚ظٹطھ</th>
+                            <th>ط§ظ„ظ…ط³طھط®ط¯ظ…</th>
+                            <th>ط§ظ„ط¹ظ…ظ„ظٹط©</th>
+                            <th>ط§ظ„ظƒظٹط§ظ† (Table)</th>
+                            <th>طھظپط§طµظٹظ„</th>
+                            <th class="text-center">ظ…ط¹ط§ظٹظ†ط©</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (auditLogs.Any())
+                        {
+                            @foreach (var log in auditLogs)
+                            {
+                                <tr>
+                                    <td class="ps-4 small text-muted">@log.CreatedAt.ToString("yyyy/MM/dd HH:mm")</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-light rounded-circle text-center me-2" style="width: 25px; height: 25px; line-height: 25px;">
+                                                <i class="bi bi-person-fill text-secondary" style="font-size: 12px;"></i>
+                                            </div>
+                                            <span class="fw-bold text-dark small">@log.UserEmail</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="sap-badge @GetBadgeClass(log.Action)">
+                                            @TranslateAction(log.Action)
+                                        </span>
+                                    </td>
+                                    <td><code class="text-primary small">@log.TableName</code></td>
+                                    <td class="text-truncate" style="max-width: 250px;">
+                                        <span class="small text-muted" title="@log.Details">@log.Details</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="sap-btn-primary btn-sm py-1 px-3" @onclick="() => _detailsModal.Open(log)">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else if (!_isLoading)
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    ظ„ط§ طھظˆط¬ط¯ ط³ط¬ظ„ط§طھ ظ…ط·ط§ط¨ظ‚ط© ظ„ظ„ط¨ط­ط«
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @* Pagination Footer *@
+        <div class="card-footer bg-white border-top d-flex justify-content-between align-items-center py-3">
+            <div class="small text-muted">
+                ط¹ط±ط¶ @auditLogs.Count ط³ط¬ظ„ ظ…ظ† ط¥ط¬ظ…ط§ظ„ظٹ @(_paginatedResult?.TotalCount ?? 0)
+            </div>
+            <div class="btn-group shadow-sm">
+                <button class="btn btn-white border" @onclick="PreviousPage" disabled="@(!_paginatedResult?.HasPreviousPage ?? true || _isLoading)">
+                    <i class="bi bi-chevron-right"></i> ط§ظ„ط³ط§ط¨ظ‚
+                </button>
+                <span class="btn btn-white border-top border-bottom px-4 fw-bold">
+                    @(_currentPage + 1) / @(_paginatedResult?.TotalPages ?? 1)
+                </span>
+                <button class="btn btn-white border" @onclick="NextPage" disabled="@(!_paginatedResult?.HasNextPage ?? true || _isLoading)">
+                    ط§ظ„طھط§ظ„ظٹ <i class="bi bi-chevron-left"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<AuditViewerModal @ref="_detailsModal" OnClose="LoadData" />
+
+@code {
+    private List<AuditLogDto> auditLogs = new();
+    private List<string> tableNames = new();
+    private PaginatedList<AuditLogDto>? _paginatedResult;
+
+    private string searchUser = "";
+    private string selectedTable = "";
+    private string selectedAction = "";
+
+    private int _currentPage = 0;
+    private int _pageSize = 50;
+    private bool _isLoading = false;
+    private AuditViewerModal _detailsModal = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await CheckPagePermission("ViewAuditLogs"))
+        {
+            // ط¬ظ„ط¨ ط£ط³ظ…ط§ط، ط§ظ„ط¬ط¯ط§ظˆظ„ ظ…ط±ط© ظˆط§ط­ط¯ط© ظپظ‚ط· ظ„طھط؛ط°ظٹط© ط§ظ„ظ€ Filter
+            await LoadTableNames();
+            await LoadData();
+        }
+    }
+
+    private async Task LoadTableNames()
+    {
+        // ظٹظ…ظƒظ†ظƒ ط¬ظ„ط¨ظ‡ط§ ط¹ط¨ط± Mediator ط£ظˆ ط§ط³طھط¹ظ„ط§ظ… ط³ط±ظٹط¹ ظ‡ظ†ط§
+        // tableNames = await Context.AuditLogs.Select(x => x.TableName).Distinct().ToListAsync();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // ظ†ظ…ط±ط± selectedAction ط£ظٹط¶ط§ظ‹ ط¥ط°ط§ ط£ط¶ظپطھظ‡ط§ ظ„ظ„ظ€ Query ظˆط§ظ„ظ€ Handler
+            var query = new GetAuditLogsQuery(_currentPage, _pageSize, selectedTable, searchUser);
+            _paginatedResult = await ExecuteAsync(query);
+            auditLogs = _paginatedResult.Items;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    // --- ظ…ظ†ط·ظ‚ ط§ظ„ظپظ„طھط±ط© ط§ظ„ط¬ط¯ظٹط¯ ---
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        searchUser = e.Value?.ToString() ?? "";
+        _currentPage = 0; // ط¥ط¹ط§ط¯ط© ط¶ط¨ط· ط§ظ„طµظپط­ط© ط¹ظ†ط¯ ط§ظ„ط¨ط­ط«
+        await LoadData();
+    }
+
+    private async Task OnTableFilterChanged(ChangeEventArgs e)
+    {
+        selectedTable = e.Value?.ToString() ?? "";
+        _currentPage = 0;
+        await LoadData();
+    }
+
+    private async Task OnActionFilterChanged(ChangeEventArgs e)
+    {
+        selectedAction = e.Value?.ToString() ?? "";
+        _currentPage = 0;
+        await LoadData();
+    }
+
+    private async Task RefreshData()
+    {
+        _currentPage = 0;
+        await LoadData();
+    }
+
+    private async Task NextPage()
+    {
+        if (_paginatedResult?.HasNextPage == true)
+        {
+            _currentPage++;
+            await LoadData();
+        }
+    }
+
+    private async Task PreviousPage()
+    {
+        if (_currentPage > 0)
+        {
+            _currentPage--;
+            await LoadData();
+        }
+    }
+
+    private string GetBadgeClass(string action) => action switch
+    {
+        "Create" => "sap-badge-create",
+        "Update" => "sap-badge-update",
+        "Delete" => "sap-badge-delete",
+        _ => "bg-light text-dark border"
+    };
+
+    private string TranslateAction(string action) => action switch
+    {
+        "Create" => "ط¥ط¶ط§ظپط©",
+        "Update" => "طھط¹ط¯ظٹظ„",
+        "Delete" => "ط­ط°ظپ",
+        _ => action
+    };
+}
+

@@ -1,0 +1,317 @@
+﻿
+@page "/admin/permissionss"
+@using DataVance.Application.Common
+@using DataVance.Application.Security.DTO
+@using DataVance.Application.Security.Queries
+@using DataVance.Components.Common.Business.Components
+@using DataVance.Components.Common.Business.ModelDesgin
+@using DataVance.Components.Shared.GenericeModal
+@inject IJSRuntime JS
+@inherits DataVanceBasePage
+
+<CascadingValue Value="this">
+    <div class="permissions-container p-4 fade-in" dir="rtl">
+        @* شريط الإجراءات للحفظ *@
+        <ActionToolbar Permissions="model._pageToolbarPermissions" 
+                       OnSave="OnSaveShortcut"
+                       IsSubmitting="_isSaving" />
+
+        <div class="card shadow-sm border-0 mt-4">
+            <div class="card-body">
+                <div class="row mb-4 align-items-center">
+                    <div class="col-md-3">
+                        <label class="form-label fw-bold text-secondary">تعديل صلاحيات لـ:</label>
+                        <div class="d-flex gap-4 mt-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="targetType" id="roleType" 
+                                       checked="@(_targetType == DataVance.Domain.Entities.Enums.PermissionTarget.Role)" 
+                                       @onchange="() => ChangeTargetType(DataVance.Domain.Entities.Enums.PermissionTarget.Role)">
+                                <label class="form-check-label" for="roleType">دور وظيفي</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="targetType" id="userType" 
+                                       checked="@(_targetType == DataVance.Domain.Entities.Enums.PermissionTarget.User)" 
+                                       @onchange="() => ChangeTargetType(DataVance.Domain.Entities.Enums.PermissionTarget.User)">
+                                <label class="form-check-label" for="userType">مستخدم محدد</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-5">
+                        @* حقل البحث الديناميكي *@
+                        <LookupField Title="@(_targetType == DataVance.Domain.Entities.Enums.PermissionTarget.Role ? "بحث الأدوار" : "بحث المستخدمين")"
+                                     OnGetData="@(() => OpenTargetLookup())"
+                                     DisplayName="@_selectedTargetName"
+                                     OnSelected="HandleTargetSelected" />
+                    
+                    </div>
+
+     
+                </div>
+                @*النسخ*@
+                <div class="col-md-4 border-start ps-4">
+                    <div class="d-flex align-items-end gap-2">
+                        <div class="flex-grow-1">
+                            <label class="form-label fw-bold text-info">نسخ الصلاحيات من:</label>
+                            <LookupField Title="اختر المصدر للنسخ..."
+                                         OnGetData="@(() => OpenTargetLookup())"
+                                         DisplayName="@_sourceTargetName"
+                                         OnSelected="HandleSourceSelected" />
+                        </div>
+                        <button class="btn btn-outline-info"
+                                @onclick="CopyPermissions"
+                                disabled="@(_sourceTargetId == Guid.Empty || _selectedTargetId == Guid.Empty || _isSaving)">
+                            <i class="bi bi-copy me-1"></i> نسخ
+                        </button>
+                    </div>
+                    <small class="text-muted">سيتم استبدال صلاحيات @_selectedTargetName بصلاحيات المصدر المختار.</small>
+                </div>
+                @* جدول مصفوفة الصلاحيات *@
+                @if (_selectedTargetId != Guid.Empty)
+                {
+                    <div class="table-responsive mt-4 rounded border shadow-sm">
+                        <table class="table table-hover align-middle bg-white mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 300px" class="ps-4">الصفحة / المديول</th>
+                                    @* عرض الأعمدة بناءً على جميع الأكشنز المتوفرة في النظام *@
+                                    @foreach (var actionName in model._allSystemActions)
+                                    {
+                                        <th class="text-center">@actionName.DisplayName</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var moduleGroup in _groupedPages)
+                                {
+                                    @* سطر المديول (النظام الفرعي) *@
+                                    <tr class="table-secondary">
+                                        <td colspan="@(model._allSystemActions.Count + 1)" class="fw-bold text-primary py-2 ps-3">
+                                            <i class="bi bi-collection-fill me-2"></i> النظام: @moduleGroup.Key
+                                        </td>
+                                    </tr>
+
+                                    @foreach (var pages in moduleGroup)
+                                    {
+                                        <tr>
+                                            <td class="ps-4">
+                                                <i class="@(string.IsNullOrEmpty(pages.Icon) ? "bi bi-file-earmark" : pages.Icon) me-2 text-secondary"></i>
+                                                @pages.DisplayName
+                                            </td>
+
+                                            @* هنا السحر: الصفحة فقط تعرض ما قاله السيرفر *@
+                                            @foreach (var action in pages.AvailableActions)
+                                            {
+                                                <td class="text-center">
+                                                    @if (action.IsActive)
+                                                    {
+                                                        <div class="form-check form-switch d-flex justify-content-center m-0">
+                                                            <input class="form-check-input cursor-pointer" type="checkbox"
+                                                                   checked="@action.IsGranted"
+                                                                   @onchange="(e) => TogglePermission(pages.Id, action, e.Value!)">
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        @* إذا كان الأكشن غير متاح لهذه الصفحة برمجياً *@
+                                                        <span class="text-muted opacity-25"><i class="bi bi-dash-lg"></i></span>
+                                                    }
+                                                </td>
+                                            }
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+      
+                }
+                else
+                {
+                    <div class="text-center p-5 text-muted">
+                        <i class="bi bi-shield-lock display-4"></i>
+                        <p class="mt-3">يرجى اختيار دور أو مستخدم لعرض مصفوفة الصلاحيات</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</CascadingValue>
+<LookupModal @ref="GenericModal" OnItemSelected="HandleItemSelected" />
+@code {
+    private bool _isSaving = false;
+    private DataVance.Domain.Entities.Enums.PermissionTarget _targetType = DataVance.Domain.Entities.Enums.PermissionTarget.Role;
+    private Guid _selectedTargetId = Guid.Empty;
+    private string _selectedTargetName = "اختر السجل...";
+
+    private PermissionModel model = new PermissionModel();
+    private Guid _sourceTargetId = Guid.Empty;
+    private string _sourceTargetName = "اختر المصدر...";
+    // تجميع الصفحات حسب المديول
+    private IEnumerable<IGrouping<string, SystemPageDto>> _groupedPages => model._allPages.GroupBy(p => p.ModuleName);
+
+    // حالة الصلاحيات الحالية للهدف المختار
+    private List<PermissionDto> _currentPermissions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        model._allSystemActions = await ExecuteAsync(new GetPageActionsQuery(Guid.Empty));
+
+    }
+    private void TogglePermission(Guid pageId, PageActionDto action, object isChecked)
+    {
+        action.IsGranted = (bool)isChecked;
+        UpdateCurrentPermissionsList(pageId, action);
+    }
+    private void HandleSourceSelected(LookupItem item)
+    {
+        if (item != null)
+        {
+            _sourceTargetId = item.Id;
+            _sourceTargetName = item.Code;
+        }
+    }
+    private async Task HandleTargetSelected(LookupItem item)
+    {
+        if (item != null)
+        {
+            _selectedTargetId = item.Id;
+            _selectedTargetName = item.Code;
+
+            // طلب مصفوفة الصلاحيات (التي تحتوي الآن على AvailableActions بداخل كل صفحة)
+            var result = await ExecuteAsync(new GetPermissionsByTargetQuery(_selectedTargetId, _targetType));
+
+            if (result != null)
+            {
+                model._allPages = result;
+
+                // مزامنة قائمة المسودة (للإرسال لاحقاً) مع البيانات الحالية
+                _currentPermissions = result
+                    .SelectMany(p => p.AvailableActions.Where(a => a.IsGranted)
+                    .Select(a => new PermissionDto
+                    {
+                        PageId = p.Id,
+                        ActionId = a.ActionId,
+                        ActionCode = a.ActionCode,
+                        IsGranted = true
+                    })).ToList();
+            }
+        }
+        else
+        {
+            ResetSelection();
+        }
+        StateHasChanged();
+    }
+    private void ResetSelection()
+    {
+        _selectedTargetId = Guid.Empty;
+        _selectedTargetName = "اختر السجل...";
+        model._allPages.Clear();
+        _currentPermissions.Clear();
+    }
+
+
+
+    private async Task CopyPermissions()
+    {
+        if (_sourceTargetId == Guid.Empty || _selectedTargetId == Guid.Empty) return;
+
+        _isSaving = true;
+
+        var command = new CopyPermissionsCommand
+            {
+                SourceTargetId = _sourceTargetId,
+                SourceTargetType = _targetType, 
+                DestinationTargetId = _selectedTargetId,
+                DestinationTargetType = _targetType
+            };
+        var w=  await  ExecuteAsync(command, " تم نسخ الصلاحيات بنجاح");
+        if (w)
+        {
+
+            ChangeTargetType(_targetType);
+
+        }
+    }
+
+    private void ChangeTargetType(DataVance.Domain.Entities.Enums.PermissionTarget newType)
+    {
+        _targetType = newType;
+        _selectedTargetId = Guid.Empty;
+        _sourceTargetId = Guid.Empty; // تصفير المصدر
+        _selectedTargetName = _targetType == DataVance.Domain.Entities.Enums.PermissionTarget.Role ? "اختر دوراً..." : "اختر مستخدماً...";
+        _sourceTargetName = "اختر المصدر...";
+        _currentPermissions.Clear();
+        StateHasChanged();
+    }
+
+    private async Task<List<LookupItem>> OpenTargetLookup()
+    {
+        return await ExecuteAsync(new GetAllTargetQuery(_targetType));
+    }
+
+    private void UpdateCurrentPermissionsList(Guid pageId, PageActionDto action)
+    {
+        var existing = _currentPermissions.FirstOrDefault(p => p.PageId == pageId && p.ActionId == action.ActionId);
+
+        if (existing != null)
+        {
+            existing.IsGranted = action.IsGranted;
+        }
+        else
+        {
+            _currentPermissions.Add(new PermissionDto
+            {
+                PageId = pageId,
+                ActionId = action.ActionId,
+                ActionCode = action.ActionCode,
+                IsGranted = action.IsGranted
+            });
+        }
+    }
+
+
+    protected override async Task OnSaveShortcut()
+    {
+        await SaveAllPermissions();
+
+    }
+    private async Task SaveAllPermissions()
+    {
+        if (_selectedTargetId == Guid.Empty) return;
+
+        _isSaving = true;
+     
+            var command = new UpdatePermissionsCommand 
+            { 
+                TargetId = _selectedTargetId, 
+                TargetType = _targetType, 
+                Permissions = _currentPermissions 
+            };
+
+            // var result = await ExecuteAsync(command);
+        var result = await ExecuteAsync(command, " تم نسخ الصلاحيات بنجاح");
+
+            if (result)
+            {
+            _isSaving = false;
+
+                // إظهار تنبيه نجاح هنا (مثل Snackbar أو Toast)
+            }
+        
+       
+            StateHasChanged();
+        
+    }
+
+    public class PermissionModel()
+    {
+    public List<SystemPageDto> _allPages = new();
+    public List<SystemActionDto> _allSystemActions = new();
+    public PagePermissions _pageToolbarPermissions = new();
+
+    }
+}
+
+

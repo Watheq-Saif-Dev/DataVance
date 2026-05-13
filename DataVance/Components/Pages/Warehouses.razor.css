@@ -1,0 +1,21 @@
+﻿.sap-card {
+        border-radius: 0;
+        border-top: 4px solid #0854a0;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .sap-table thead {
+        background: #f5f5f5;
+    }
+
+    .sap-input {
+        border-radius: 0;
+        border: 1px solid #ccc;
+    }
+
+    .sap-btn-success {
+        background: #107e3e;
+        color: white;
+        border: none;
+        padding: 5px 20px;
+    }

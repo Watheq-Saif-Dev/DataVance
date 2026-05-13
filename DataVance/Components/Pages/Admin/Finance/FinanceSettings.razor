@@ -1,0 +1,69 @@
+﻿@page "/finance/settings"
+@using DataVance.Application.Features.FiscalYears.Commands
+@using DataVance.Application.Features.FiscalYears.DTOs
+@using DataVance.Application.Features.FiscalYears.Queries
+@using DataVance.Application.FinanceSystem.Commands
+@using DataVance.Application.FinanceSystem.DTO
+@using DataVance.Application.FinanceSystem.Query
+@inherits DataVanceBasePage
+
+<div class="finance-container">
+    <div class="header-section">
+        <h2>إدارة الفترات المالية</h2>
+        <button class="btn btn-secondary" @onclick="OpenClosingYearDialog">
+            إجراء الإغلاق السنوي النهائي
+        </button>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="loading-bar"></div>
+    }
+    else
+    {
+        <div class="periods-grid">
+            @foreach (var period in FiscalPeriods)
+            {
+                <div class="period-card @(period.IsClosed ? "closed" : "open")">
+                    <div class="card-header">
+                        <span class="period-name">@period.Name</span>
+                        <span class="status-badge">@(period.IsClosed ? "مغلق" : "مفتوح")</span>
+                    </div>
+                    <div class="card-body">
+                        <p>تبدأ من: @period.StartDate.ToShortDateString()</p>
+                        <p>تنتهي في: @period.EndDate.ToShortDateString()</p>
+                    </div>
+                    <div class="card-actions">
+                        @if (!period.IsClosed)
+                        {
+                            <button class="btn btn-primary" @onclick="() => ClosePeriod(period.Id)">
+                                إغلاق الشهر
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+
+@code {
+    private List<FiscalPeriodDto> FiscalPeriods = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        FiscalPeriods = await ExecuteAsync(new GetFiscalPeriodsQuery());
+    }
+
+    private async Task ClosePeriod(Guid periodId)
+    {
+        //هنا ناخذ القيمة في السرفر 
+        var result = await ExecuteAsync(new CloseFiscalPeriodCommand(periodId,Guid.Empty), "تم إغلاق الشهر بنجاح");
+        if (result) await OnInitializedAsync();
+    }
+
+    private void OpenClosingYearDialog() { /* منطق الحوار */ }
+}
+
+

@@ -1,0 +1,42 @@
+﻿
+<div class="barcode-container mb-1" dir="rtl">
+    <div class="input-group shadow-sm border border-primary rounded-pill overflow-hidden">
+        <span class="input-group-text bg-primary text-white border-0 px-3">
+            <i class="bi bi-upc-scan fs-5"></i>
+        </span>
+
+        <input type="text"
+               class="form-control form-control-lg text-center border-0 shadow-none fw-bold"
+               style="font-family: 'Courier New', Courier, monospace; letter-spacing: 2px;"
+               placeholder="امسح الباركود هنا..."
+               @bind="searchTerm"
+               @bind:event="oninput"
+               @onkeyup="HandleKeyUp"
+               @ref="barcodeInput" />
+
+        @if (!string.IsNullOrEmpty(searchTerm))
+        {
+            <button class="btn btn-light border-0 text-muted px-3" @onclick='() => searchTerm = ""'>
+                <i class="bi bi-x-lg"></i>
+            </button>
+        }
+    </div>
+</div>
+
+@code {
+    private string searchTerm = "";
+    private ElementReference barcodeInput;
+
+    [Parameter] public EventCallback<string> OnBarcodeRead { get; set; }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(searchTerm))
+        {
+            await OnBarcodeRead.InvokeAsync(searchTerm);
+            searchTerm = ""; // تصفير الحقل للمرة القادمة
+        }
+    }
+
+    public async Task FocusAsync() => await barcodeInput.FocusAsync();
+}

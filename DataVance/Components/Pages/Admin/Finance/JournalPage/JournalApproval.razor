@@ -1,0 +1,249 @@
+﻿@page "/finance/manager/journal-approval"
+@using DataVance.Application.AuditSystem.DTO
+@using DataVance.Application.FinanceSystem.Commands
+@using DataVance.Application.FinanceSystem.Commands.JournalCommand
+@using DataVance.Application.FinanceSystem.DTO.JournalDTO
+@using DataVance.Application.FinanceSystem.Query.JournalQuery
+@using DataVance.Components.Shared.AccountCompenets
+@using DataVance.Domain.Finance.Shared.Enums
+@using MediatR
+@inject ICurrentUserContext currentUser
+@inject NavigationManager Navigation
+@inherits DataVanceBasePage
+
+<div class="container-fluid rtl text-right" dir="rtl">
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-6">
+            <h3 class="fw-bold text-dark"><i class="bi bi-shield-check text-primary"></i> مراجعة واعتماد القيود</h3>
+            <p class="text-muted">نظام الرقابة المالية: مراجعة، اعتماد، وترحيل القيود المحاسبية.</p>
+        </div>
+        <div class="col-md-6 text-left text-start">
+            <button class="btn btn-primary" @onclick="LoadData">
+                <i class="bi bi-arrow-clockwise"></i> تحديث البيانات
+            </button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4 p-2">
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn @(SelectedStatus == null ? "btn-dark" : "btn-outline-dark")" @onclick="() => FilterByStatus(null)">الكل</button>
+            <button class="btn @(SelectedStatus == JournalStatus.Draft ? "btn-secondary" : "btn-outline-secondary")" @onclick="() => FilterByStatus(JournalStatus.Draft)">مسودة (Draft)</button>
+            <button class="btn @(SelectedStatus == JournalStatus.Approved ? "btn-info" : "btn-outline-info")" @onclick="() => FilterByStatus(JournalStatus.Approved)">معتمد (Approved)</button>
+            <button class="btn @(SelectedStatus == JournalStatus.Posted ? "btn-success" : "btn-outline-success")" @onclick="() => FilterByStatus(JournalStatus.Posted)">مرحل (Posted)</button>
+            <button class="btn @(SelectedStatus == JournalStatus.Reversed ? "btn-warning" : "btn-outline-warning")" @onclick="() => FilterByStatus(JournalStatus.Reversed)">معكوس (Reversed)</button>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light text-secondary">
+                    <tr>
+                        <th class="py-3">رقم القيد</th>
+                        <th>الحالة</th>
+                        <th>التاريخ</th>
+                        <th>بواسطة</th>
+                        <th class="text-end">مدين (محلي)</th>
+                        <th class="text-end">دائن (محلي)</th>
+                        <th class="text-center">التوازن</th>
+                        <th class="text-center">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (PagedResult == null)
+                    {
+                        <tr><td colspan="8" class="text-center py-5"><div class="spinner-border text-primary"></div></td></tr>
+                    }
+                    else if (!PagedResult.Items.Any())
+                    {
+                        <tr><td colspan="8" class="text-center py-5 text-muted">لا توجد قيود حالياً في هذه القائمة.</td></tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in PagedResult.Items)
+                        {
+                            <tr class="@(!item.IsBalanced ? "table-danger" : "")">
+                                <td class="fw-bold">@item.EntryNumber</td>
+                                <td><span class="badge @GetStatusBadgeClass(item.Status)">@item.Status.ToString()</span></td>
+                                <td>@item.EntryDate.ToShortDateString()</td>
+                                <td><i class="bi bi-person small"></i> @item.CreatedBy</td>
+                                <td class="text-end fw-bold">@item.TotalDebitLocal.ToString("N2")</td>
+                                <td class="text-end fw-bold">@item.TotalCreditLocal.ToString("N2")</td>
+                                <td class="text-center">
+                                    <i class="bi @(item.IsBalanced ? "bi-check-circle-fill text-success" : "bi-exclamation-triangle-fill text-danger")"></i>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group shadow-sm">
+                                        @* <button class="btn btn-sm btn-light border" title="عرض" @onclick="() => ViewDetails(item.Id)">
+                                            <i class="bi bi-eye"></i>
+                                        </button> *@
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => OpenDetails(item.Id)">
+                                           <i class="bi bi-eye"></i>
+                                            </button>
+                                            <JournalEntryViewModal 
+                                                IsVisible="_isDetailsVisible" 
+                                                Entry="_selectedEntryDetails" 
+                                                OnClose="CloseDetails" />
+
+
+                                        @if (item.Status == JournalStatus.Draft)
+                                        {
+                                            <button class="btn btn-sm btn-info text-white" title="اعتماد القيد" @onclick="() => ApproveJournal(item.Id)">
+                                                <i class="bi bi-file-earmark-check"></i> اعتماد
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" title="حذف المسودة" @onclick="() => DeleteJournal(item.Id)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        }
+                                        else if (item.Status == JournalStatus.Approved)
+                                        {
+                                            <button class="btn btn-sm btn-success" title="ترحيل نهائي" 
+                                                    disabled="@(!item.IsBalanced)" 
+                                                    @onclick="() => PostJournal(item.Id)">
+                                                <i class="bi bi-send-check"></i> ترحيل
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-warning text-dark" title="إرجاع لمسودة" @onclick="() => UnapproveJournal(item.Id)">
+                                                <i class="bi bi-arrow-counterclockwise"></i> فك الاعتماد
+                                            </button>
+                                        }
+                                        else if (item.Status == JournalStatus.Posted)
+                                        {
+                                            <button class="btn btn-sm btn-outline-danger" title="قيد عكسي" @onclick="() => ReverseJournal(item.Id)">
+                                                <i class="bi bi-arrow-left-right"></i> قيد عكسي
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (PagedResult != null && PagedResult.TotalPages > 1)
+    {
+        <div class="d-flex justify-content-between align-items-center mt-3 bg-white p-2 rounded shadow-sm">
+            <div class="text-muted small">إجمالي القيود: @PagedResult.TotalCount</div>
+            <nav>
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item @(!PagedResult.HasPreviousPage ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => ChangePage(CurrentPage - 1)">السابق</button>
+                    </li>
+                    <li class="page-item disabled"><span class="page-link">@(CurrentPage + 1) / @PagedResult.TotalPages</span></li>
+                    <li class="page-item @(!PagedResult.HasNextPage ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => ChangePage(CurrentPage + 1)">التالي</button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    }
+</div>
+@code {
+    private PaginatedList<JournalReviewDto>? PagedResult;
+    private JournalStatus? SelectedStatus = null;
+    private int CurrentPage = 0;
+    private const int PageSize = 10;
+    private bool _isDetailsVisible;
+    private JournalEntryDto? _selectedEntryDetails;
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task OpenDetails(Guid id)
+    {
+        // 1. إظهار الـ Modal فوراً (سيظهر الـ Spinner لأن _selectedEntryDetails نول)
+        _isDetailsVisible = true;
+        _selectedEntryDetails = null;
+
+        // 2. جلب البيانات التفصيلية باستخدام الـ Query الجديد
+        // نستخدم CancellationToken.None أو نمرر الـ Token الخاص بالصفحة
+        _selectedEntryDetails = await ExecuteAsync(new GetJournalEntryByIdQuery(id));
+    }
+    private void CloseDetails()
+    {
+        _isDetailsVisible = false;
+        _selectedEntryDetails = null;
+    }
+    private async Task LoadData()
+    {
+        // استدعاء الكويري المهيكل مع Pagination والفلترة
+        var query = new GetPagedJournalsQuery 
+        { 
+            BranchId = currentUser.BranchId,
+            PageNumber = CurrentPage,
+            PageSize = PageSize,
+            Status = SelectedStatus
+        };
+        
+        PagedResult = await ExecuteAsync(query);
+    }
+
+    private async Task FilterByStatus(JournalStatus? status)
+    {
+        SelectedStatus = status;
+        CurrentPage = 0; // العودة للصفحة الأولى عند الفرز
+        await LoadData();
+    }
+
+    private async Task ChangePage(int newPage)
+    {
+        CurrentPage = newPage;
+        await LoadData();
+    }
+
+    // --- الإجراءات (Actions) ---
+
+    private async Task ApproveJournal(Guid id)
+    {
+        // ميثود الاعتماد (تغيير الحالة من Draft إلى Approved)
+        var command = new ApproveJournalEntryCommand(id);
+        await ExecuteAsync(command, "تم اعتماد القيد بنجاح، جاهز للترحيل.");
+        await LoadData();
+    }
+
+    private async Task PostJournal(Guid id)
+    {
+        // ميثود الترحيل (تغيير الحالة إلى Posted وتحديث الأرصدة)
+        var command = new PostJournalEntryCommand(id);
+        await ExecuteAsync(command, "تم ترحيل القيد وتحديث الأرصدة بنجاح.");
+        await LoadData();
+    }
+
+    private async Task UnapproveJournal(Guid id)
+    {
+        // فك الاعتماد (يرجع القيد مسودة للتعديل)
+        var command = new UnapproveJournalEntryCommand(id);
+        await ExecuteAsync(command, "تم فك اعتماد القيد وإعادته لحالة مسودة.");
+        await LoadData();
+    }
+
+    private async Task ReverseJournal(Guid id)
+    {
+        // إنشاء قيد عكسي (للتعامل مع القيود المرحلة)
+        var command = new ReverseJournalEntryCommand(id,"ايش السبب");
+        await ExecuteAsync(command, "تم إنشاء القيد العكسي وترحيله لتصفير الأثر.");
+        await LoadData();
+    }
+
+    private async Task DeleteJournal(Guid id)
+    {
+        // حذف المسودات فقط
+        var command = new DeleteJournalEntryCommand(id);
+        await ExecuteAsync(command, "تم حذف القيد المسودة.");
+        await LoadData();
+    }
+
+    private void ViewDetails(Guid id) => Navigation.NavigateTo($"/finance/journal-details/{id}");
+
+    private string GetStatusBadgeClass(JournalStatus status) => status switch
+    {
+        JournalStatus.Draft => "bg-secondary text-white",
+        JournalStatus.Approved => "bg-info text-white",
+        JournalStatus.Posted => "bg-success text-white",
+        JournalStatus.Reversed => "bg-warning text-dark",
+        _ => "bg-dark text-white"
+    };
+}
+
+
+

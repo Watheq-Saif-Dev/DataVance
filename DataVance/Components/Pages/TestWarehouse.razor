@@ -1,0 +1,92 @@
+﻿@page "/admin/test-warehouse"
+@using DataVance.Application.Features.Warehouses.Commands
+@using MediatR
+@inherits DataVanceBasePage
+@inject ICurrentUserContext CurrentUser
+    <div class="container mt-5">
+        <div class="card shadow">
+            <div class="card-header bg-dark text-white">
+                <h5>تجربة نظام الحماية (Execution Gate)</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>المستخدم الحالي:</strong> @CurrentUser.UserName <br />
+                    <strong>الفرع النشط:</strong> @CurrentUser.BranchName
+                </div>
+
+                <div class="mb-3">
+                    <label>اسم المخزن الجديد</label>
+                    <input @bind="_warehouseName" class="form-control" placeholder="مثلاً: مخزن قطع الغيار" />
+                </div>
+  
+                <button class="btn btn-success" @onclick="CreateWarehouse">
+                    <i class="bi bi-shield-check"></i> تنفيذ عملية (تتطلب صلاحية)
+                </button>
+          
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>الصنف</th>
+                            <th>العمليات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>صنف تجريبي</td>
+                            <td>
+                                    <button class="btn btn-sm btn-info">تعديل</button>
+                                    <button class="btn btn-sm btn-danger">حذف</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                @if (!string.IsNullOrEmpty(_statusMessage))
+                {
+                    <div class="mt-3 alert @(_isError ? "alert-danger" : "alert-success")">
+                        @_statusMessage
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+@code {
+    private string _warehouseName = "";
+    private string _statusMessage = "";
+    private bool _isError = false;
+    protected override async Task OnInitializedAsync()
+    {
+        if (await CheckPagePermission("Warehouses"))
+        {
+            await base.OnInitializedAsync();
+            var uid = CurrentUser.UserId;
+            var pageName = "TestWarehouse";
+        }
+
+    }
+    private async Task CreateWarehouse()
+    {
+        var uid = CurrentUser.UserId.ToString();
+        try
+        {
+            _statusMessage = "جاري الإرسال...";
+            var command = new CreateWarehouseCommand
+            {
+                Name = _warehouseName,
+                Location = "الموقع الرئيسي",
+            };
+            // . تنفيذ العملية الأساسية
+            var resultId = await ExecuteAsync(command);
+
+            _statusMessage = "? نجحت العملية وتسجيل التدقيق!";
+            _isError = false;
+        }
+        catch (Exception ex)
+        {
+            _isError = true;
+            _statusMessage = $"? فشل: {ex.Message}";
+           
+        }
+    }
+   
+}

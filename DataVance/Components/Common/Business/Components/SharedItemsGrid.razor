@@ -1,0 +1,514 @@
+﻿@* @using DataVance.Application.Common
+@using DataVance.Components.Common.Business.ModelDesgin
+@using DataVance.Components.Shared.GenericeModal
+@typeparam TItem where TItem : class, IItemTransactionLine, new()
+@inject ILookUpService LookUpService
+
+<div class="card mb-4 shadow-sm border-0 rounded-3 overflow-hidden">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-list-ul me-2"></i>@Title</h6>
+        <button type="button" class="btn btn-success btn-sm shadow-sm" @onclick="AddNewLine">
+            <i class="bi bi-plus-lg"></i> إضافة صنف (Space)
+        </button>
+    </div>
+
+    <div class="card-body p-0" @onkeydown="HandleTableGlobalKey">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-secondary small">
+                    <tr class="text-center">
+                        <th style="min-width: 200px;">بحث سريع</th>
+                        <th style="min-width: 150px;">الصنف</th>
+                        <th style="min-width: 110px;">المستودع</th>
+                        <th style="min-width: 100px;">الوحدة</th>
+                        <th style="min-width: 130px;">الكمية</th>
+                        <th style="min-width: 100px;">السعر</th>
+                        <th style="min-width: 90px;" class="text-danger">الخصم/و</th>
+                        <th style="min-width: 90px;" class="text-warning">الضريبة</th>
+                        <th style="min-width: 110px;">الإجمالي</th>
+                        <th style="min-width: 50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Items)
+                    {
+                        var index = Items.IndexOf(item);
+                        <tr @key="item">
+                            <td>
+                         
+                                <LookupField @ref="RowRefs[index]"
+                                             Title="بحث الأصناف"
+                                             OnGetData="GetItem"
+                                             DisplayName="@item.Barcode"
+                                             OnSelected="@(res => HandleItemSelection(item, res))"
+                                             CustomColumns="@ItemColumns" />
+                            </td>
+                            <td>
+                                <div class="fw-bold small text-truncate" style="max-width: 150px;" title="@item.ItemName">
+                                    @item.ItemName
+                                </div>
+                            </td>
+                            <td>
+                                <select class="form-select form-select-sm border-0 bg-light" @bind="item.WarehouseId">
+                                    <option value="@item.WarehouseId">@item.WarehouseName</option>
+                                </select>
+                            </td>
+                            <td class="text-center">
+                                <LookupField Title="بحث الوحدات"
+                                             OnGetData="@(()=> GetUnitItem(item))"
+                                             DisplayName="@item.UnitName"
+                                             OnSelected="@(res => HandleUnitSelection(item, res))"
+                                             CustomColumns="@UnitColumns" />
+                            </td>
+
+                            <td>
+                                <div class="input-group input-group-sm flex-nowrap qty-group mx-auto shadow-sm">
+                                    <input type="number" class="form-control text-center mobile-input fw-bold border-primary-subtle px-1"
+                                           @bind="item.Quantity" @bind:event="oninput" @onchange="NotifyChange" />
+                                    <button class="btn btn-primary px-2" type="button"
+                                            @onclick='() => OpenNumpad(item, "Quantity", item.Quantity)'>
+                                        <i class="bi bi-calculator-fill"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        
+                            <td>
+                                <div class="input-group input-group-sm flex-nowrap qty-group mx-auto shadow-sm">
+                                    <input type="number" class="form-control text-end fw-bold border-primary-subtle px-1"
+                                           @bind="item.UnitPriceOrCost" @bind:event="oninput" @onchange="NotifyChange" />
+                                    <button class="btn btn-dark px-2" type="button"
+                                            @onclick='() => OpenNumpad(item, "Price", item.UnitPriceOrCost)'>
+                                        <i class="bi bi-cash-stack"></i>
+                                    </button>
+                                </div>
+                            </td>
+                         
+                            <td>
+                                <div class="input-group input-group-sm flex-nowrap qty-group mx-auto shadow-sm">
+                                    <input type="number" class="form-control text-end text-danger fw-bold border-danger-subtle px-1"
+                                           @bind="item.DiscountAmountForUnit" @bind:event="oninput" @onchange="NotifyChange" />
+                                    <button class="btn btn-danger px-2" type="button"
+                                            @onclick='() => OpenNumpad(item, "Discount", item.DiscountAmountForUnit)'>
+                                        <i class="bi bi-percent"></i>
+                                    </button>
+                                </div>
+                            </td>
+
+                            <td class="text-end small">
+                                <span class="text-muted">@item.TotalTax.ToString("N2")</span>
+                            </td>
+                            <td class="text-end fw-bold text-primary">
+                                @item.TotalAmount.ToString("N2")
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-link btn-sm text-danger p-0" @onclick="() => RemoveLine(item)">
+                                    <i class="bi bi-x-circle-fill fs-5"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot class="bg-light fw-bold border-top">
+                    <tr>
+                        <td colspan="4" class="text-end py-3">إجمالي الأصناف:</td>
+                        <td class="text-center text-primary fs-5">@Items.Sum(x => x.Quantity).ToString("N0")</td>
+                        <td colspan="2" class="text-end text-danger">إجمالي الخصم: @Items.Sum(x => x.DiscountAmountForAllQty).ToString("N2")</td>
+                        <td colspan="2" class="text-end text-primary fs-5">
+                            <small class="text-muted fs-6">الصافي: </small>
+                            @Items.Sum(x => x.TotalAmount).ToString("N2")
+                        </td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<NumpadModal IsVisible="activeItemForNumpad != null"
+             Title="@(activeField == "Quantity" ? "الكمية" : activeField == "Price" ? "السعر" : "الخصم")"
+             SubTitle="@activeItemForNumpad?.ItemName"
+             CurrentValue="@GetCurrentValue()"
+             OnValueChanged="UpdateValue"
+             OnClose="() => activeItemForNumpad = null" />
+
+@code {
+    [Parameter] public string Title { get; set; } = "تفاصيل الفاتورة";
+    [Parameter] public List<TItem> Items { get; set; } = new();
+    [Parameter] public Guid DefaultWarehouseId { get; set; }
+    [Parameter] public string? DefaultWarehouseName { get; set; }
+    [Parameter] public EventCallback OnDataChanged { get; set; }
+
+
+       [Parameter] public bool IsPurchase { get; set; } = false;
+    [Parameter] public bool IsSales { get; set; } = false;
+    [Parameter] public bool IsTransfer { get; set; } = false;
+
+
+    private Dictionary<int, LookupField> RowRefs = new();
+    private bool _shouldFocusLastRow = false;
+    private Dictionary<string, string> UnitColumns = new() { { "Name", "الوحدة" }, { "Factor", "المعامل" } };
+    private Dictionary<string, string> ItemColumns = new() { { "Barcode", "باركود" }, { "Name", "الصنف" }, { "Cost", "التكلفة" }, { "SalePrice", "سعر البيع" }, { "CurrentBalance", "الكميه المتواجد" } };
+
+    // متغيرات لوحة الأرقام
+    private TItem? activeItemForNumpad;
+    private string activeField = ""; // "Quantity", "Price", "Discount"
+
+    // protected override void OnInitialized()
+    // {
+    //     StateHasChanged();
+    //     if (!Items.Any()) AddNewLine();
+    // }
+
+    protected override void OnParametersSet()
+    {
+        if (Items == null || !Items.Any())
+        {
+            AddNewLine();
+        }
+    }
+
+    private async Task NotifyChange() => await OnDataChanged.InvokeAsync();
+
+
+
+
+    private async Task<List<LookupItem>> GetItem()
+    {
+        // ItemColumns = ItemColumns ,
+        var result = await LookUpService.GetItemsLookup(null,null,null,null,true,IsPurchase,IsSales);
+
+        return result;
+    }
+
+    private async Task<List<LookupItem>> GetUnitItem(TItem item)
+    {
+
+        var result = await LookUpService.GetUnitItemLookup(item.ItemId, IsPurchase, IsSales);
+        return  result;
+
+    }
+
+    private void AddNewLine()
+    {
+
+        var newItem = new TItem
+        {
+            WarehouseId = DefaultWarehouseId,
+            WarehouseName = DefaultWarehouseName ?? "",
+            Quantity = 1,
+            ExpiryDate = DateTime.Now.AddYears(1),
+            DiscountAmountForUnit = 0
+        };
+        Items.Add(newItem);
+        _shouldFocusLastRow = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_shouldFocusLastRow)
+        {
+            _shouldFocusLastRow = false;
+            await Task.Yield();
+            var lastIndex = Items.Count - 1;
+            if (RowRefs.TryGetValue(lastIndex, out var field)) await field.FocusAsync();
+        }
+    }
+    private async Task HandleItemSelection(TItem item, LookupItem res)
+    {
+        item.ItemId = res.Id;
+        item.ItemName = res.Name;
+        item.Barcode = res.Code ?? "";
+
+        if (res.ExtraData != null)
+        {
+            item.UnitId = res.ExtraData.ContainsKey("IdUnit") ? Guid.Parse(res.ExtraData["IdUnit"]) : Guid.Empty;
+            item.UnitName = res.ExtraData.GetValueOrDefault("UnitName", "");
+
+            item.ConversionFactor = decimal.Parse(res.ExtraData.GetValueOrDefault("ConversionFactor", "1"));
+
+
+            if (IsSales)
+            {
+                // item.UnitCost = decimal.Parse(res.ExtraData.GetValueOrDefault("Cost", "0"));
+                item.UnitPrice = decimal.Parse(res.ExtraData.GetValueOrDefault("SalePrice", "0"));
+            }
+            if (IsPurchase)
+            {
+                // item.UnitCost = decimal.Parse(res.ExtraData.GetValueOrDefault("Cost", "0"));
+                item.UnitPrice = decimal.Parse(res.ExtraData.GetValueOrDefault("PurchasePrice", "0"));
+            }
+
+        }
+        await NotifyChange();
+    }
+
+    private async Task HandleUnitSelection(TItem item, LookupItem res)
+    {
+        item.UnitId = res.Id;
+        item.UnitName = res.Name;
+        item.ConversionFactor = res.ExchangeRate;
+        if (IsSales)
+        {
+            // item.UnitCost = decimal.Parse(res.ExtraData!.GetValueOrDefault("Cost", "0"));
+            item.UnitPrice = decimal.Parse(res.ExtraData!.GetValueOrDefault("SalePrice", "0"));
+
+        }
+        if (IsPurchase)
+        {
+            // item.UnitCost = decimal.Parse(res.ExtraData!.GetValueOrDefault("Cost", "0"));
+            item.UnitPrice = decimal.Parse(res.ExtraData!.GetValueOrDefault("PurchasePrice", "0"));
+
+        }
+        if (res.Code != "N/A") item.Barcode = res.Code;
+        await NotifyChange();
+
+    }
+
+    private async Task RemoveLine(TItem line)
+    {
+        Items.Remove(line);
+        if (!Items.Any()) AddNewLine();
+        await NotifyChange();
+    }
+
+    private void HandleTableGlobalKey(KeyboardEventArgs e)
+    {
+        if (e.Key == " ") AddNewLine();
+    }
+
+
+    //خاص بحاسبة الاعداد 
+    private void OpenNumpad(TItem item, string fieldName, decimal value)
+    {
+        activeItemForNumpad = item;
+        activeField = fieldName;
+    }
+    private decimal GetCurrentValue()
+    {
+
+        if (activeItemForNumpad == null) return 0;
+
+        // الحل هنا: نستخدم اسم الواجهة بدلاً من TItem
+        if (activeField == nameof(IItemTransactionLine.Quantity)) return activeItemForNumpad.Quantity;
+        if (activeField == nameof(IItemTransactionLine.UnitPriceOrCost)) return activeItemForNumpad.UnitPriceOrCost;
+        if (activeField == nameof(IItemTransactionLine.DiscountAmountForUnit)) return activeItemForNumpad.DiscountAmountForUnit;
+
+        return 0;
+    }
+
+    private async Task UpdateValue(decimal newValue)
+    {
+
+        if (activeItemForNumpad == null) return;
+
+        if (activeField == nameof(IItemTransactionLine.Quantity))
+            activeItemForNumpad.Quantity = newValue;
+        else if (activeField == nameof(IItemTransactionLine.UnitPriceOrCost))
+            activeItemForNumpad.UnitPriceOrCost = newValue;
+        else if (activeField == nameof(IItemTransactionLine.DiscountAmountForUnit))
+            activeItemForNumpad.DiscountAmountForUnit = newValue;
+
+        await NotifyChange();
+    }
+} *@
+@using DataVance.Application.Common
+@using DataVance.Components.Common.Business.ModelDesgin
+@using DataVance.Components.Shared.GenericeModal
+@typeparam TItem where TItem : class, IItemTransactionLine, new()
+@inject ILookUpService LookUpService
+
+<div class="card mb-4 shadow-sm border-0 rounded-3 overflow-hidden">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-list-ul me-2"></i>@Title</h6>
+        <button type="button" class="btn btn-success btn-sm shadow-sm" @onclick="AddNewLine">
+            <i class="bi bi-plus-lg"></i> إضافة صنف (Space)
+        </button>
+    </div>
+
+    <div class="card-body p-0" @onkeydown="HandleTableGlobalKey">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-secondary small">
+                    <tr class="text-center">
+                        <th style="min-width: 200px;">بحث سريع</th>
+                        <th style="min-width: 150px;">الصنف</th>
+                        <th style="min-width: 110px;">المستودع</th>
+                        <th style="min-width: 100px;">الوحدة</th>
+                        <th style="min-width: 130px;">الكمية</th>
+                        <th style="min-width: 100px;">السعر</th>
+                        <th style="min-width: 90px;" class="text-danger">الخصم/و</th>
+                        <th style="min-width: 90px;" class="text-warning">الضريبة</th>
+                        <th style="min-width: 110px;">الإجمالي</th>
+                        <th style="min-width: 50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Items)
+                    {
+                        @* تم استبدال الكود القديم بمكون السطر *@
+                        <TransactionRow @key="item"
+                                        TItem="TItem"
+                                        Item="item"
+                                        @ref="RowRefSetter"
+                                        OnChanged="NotifyChange"
+                                        OnDelete="RemoveLine"
+                                        OnGetItem="GetItem"
+                                        OnGetUnit="GetUnitItem"
+                                        OnItemRowSelected="e => HandleItemSelection(e.item, e.res)"
+                                        OnUnitRowSelected="e => HandleUnitSelection(e.item, e.res)"
+                                        OnOpenNumpad="e => OpenNumpad(e.item, e.field)"
+                                        ItemColumns="ItemColumns"
+                                        UnitColumns="UnitColumns" />
+                    }
+                </tbody>
+                <tfoot class="bg-light fw-bold border-top">
+                    <tr>
+                        <td colspan="4" class="text-end py-3">إجمالي الأصناف:</td>
+                        <td class="text-center text-primary fs-5">@Items.Sum(x => x.Quantity).ToString("N0")</td>
+                        <td colspan="2" class="text-end text-danger">إجمالي الخصم: @Items.Sum(x => x.DiscountAmountForAllQty).ToString("N2")</td>
+                        <td colspan="2" class="text-end text-primary fs-5">
+                            <small class="text-muted fs-6">الصافي: </small>
+                            @Items.Sum(x => x.TotalAmount).ToString("N2")
+                        </td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+@* الحاسبة المركزية *@
+<NumpadModal IsVisible="activeItemForNumpad != null"
+             Title="@(activeField == nameof(IItemTransactionLine.Quantity) ? "الكمية" : activeField == nameof(IItemTransactionLine.UnitPriceOrCost) ? "السعر" : "الخصم")"
+             SubTitle="@activeItemForNumpad?.ItemName"
+             CurrentValue="GetCurrentValue()"
+             OnValueChanged="UpdateValue"
+             OnClose="() => activeItemForNumpad = null" />
+
+@code {
+    [Parameter] public string Title { get; set; } = "تفاصيل الفاتورة";
+    [Parameter] public List<TItem> Items { get; set; } = new();
+    [Parameter] public Guid DefaultWarehouseId { get; set; }
+    [Parameter] public string? DefaultWarehouseName { get; set; }
+    [Parameter] public EventCallback OnDataChanged { get; set; }
+    [Parameter] public bool IsPurchase { get; set; } = false;
+    [Parameter] public bool IsSales { get; set; } = false;
+    [Parameter] public bool IsTransfer { get; set; } = false;
+
+    private Dictionary<string, string> UnitColumns = new() { { "Name", "الوحدة" }, { "Factor", "المعامل" } };
+    private Dictionary<string, string> ItemColumns = new() { { "Barcode", "باركود" }, { "Name", "الصنف" }, { "Cost", "التكلفة" }, { "SalePrice", "سعر البيع" }, { "CurrentBalance", "الكميه المتواجد" } };
+
+    private TItem? activeItemForNumpad;
+    private string activeField = "";
+    private bool _shouldFocusLastRow = false;
+
+    // مرجع للسطر الأخير المضاف لعمل Focus
+    private TransactionRow<TItem>? _lastRowRef;
+    private TransactionRow<TItem> RowRefSetter { set => _lastRowRef = value; }
+
+    protected override void OnParametersSet()
+    {
+        if (Items == null || !Items.Any()) AddNewLine();
+    }
+
+    private async Task NotifyChange() => await OnDataChanged.InvokeAsync();
+
+    private async Task<List<LookupItem>> GetItem() =>
+        await LookUpService.GetItemsLookup(null, null, null, null, true, IsPurchase, IsSales);
+
+    private async Task<List<LookupItem>> GetUnitItem(TItem item) =>
+        await LookUpService.GetUnitItemLookup(item.ItemId, IsPurchase, IsSales);
+
+    private void AddNewLine()
+    {
+        var newItem = new TItem
+        {
+            WarehouseId = DefaultWarehouseId,
+            WarehouseName = DefaultWarehouseName ?? "",
+            Quantity = 1,
+            ExpiryDate = DateTime.Now.AddYears(1),
+            DiscountAmountForUnit = 0
+        };
+        Items.Add(newItem);
+        _shouldFocusLastRow = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_shouldFocusLastRow && _lastRowRef != null)
+        {
+            _shouldFocusLastRow = false;
+            await Task.Yield();
+            await _lastRowRef.FocusAsync();
+        }
+    }
+
+    private async Task HandleItemSelection(TItem item, LookupItem res)
+    {
+        item.ItemId = res.Id;
+        item.ItemName = res.Name;
+        item.Barcode = res.Code ?? "";
+
+        if (res.ExtraData != null)
+        {
+            item.UnitId = res.ExtraData.ContainsKey("IdUnit") ? Guid.Parse(res.ExtraData["IdUnit"]) : Guid.Empty;
+            item.UnitName = res.ExtraData.GetValueOrDefault("UnitName", "");
+            item.ConversionFactor = decimal.Parse(res.ExtraData.GetValueOrDefault("ConversionFactor", "1"));
+
+            if (IsSales) item.UnitPrice = decimal.Parse(res.ExtraData.GetValueOrDefault("SalePrice", "0"));
+            if (IsPurchase) item.UnitPrice = decimal.Parse(res.ExtraData.GetValueOrDefault("PurchasePrice", "0"));
+        }
+        await NotifyChange();
+    }
+
+    private async Task HandleUnitSelection(TItem item, LookupItem res)
+    {
+        item.UnitId = res.Id;
+        item.UnitName = res.Name;
+        item.ConversionFactor = res.ExchangeRate;
+
+        if (IsSales) item.UnitPrice = decimal.Parse(res.ExtraData!.GetValueOrDefault("SalePrice", "0"));
+        if (IsPurchase) item.UnitPrice = decimal.Parse(res.ExtraData!.GetValueOrDefault("PurchasePrice", "0"));
+
+        if (res.Code != "N/A") item.Barcode = res.Code;
+        await NotifyChange();
+    }
+
+    private async Task RemoveLine(TItem line)
+    {
+        Items.Remove(line);
+        if (!Items.Any()) AddNewLine();
+        await NotifyChange();
+    }
+
+    private void HandleTableGlobalKey(KeyboardEventArgs e)
+    {
+        if (e.Key == " ") AddNewLine();
+    }
+
+    private void OpenNumpad(TItem item, string fieldName)
+    {
+        activeItemForNumpad = item;
+        activeField = fieldName;
+    }
+
+    private decimal GetCurrentValue()
+    {
+        if (activeItemForNumpad == null) return 0;
+        if (activeField == nameof(IItemTransactionLine.Quantity)) return activeItemForNumpad.Quantity;
+        if (activeField == nameof(IItemTransactionLine.UnitPriceOrCost)) return activeItemForNumpad.UnitPriceOrCost;
+        if (activeField == nameof(IItemTransactionLine.DiscountAmountForUnit)) return activeItemForNumpad.DiscountAmountForUnit;
+        return 0;
+    }
+
+    private async Task UpdateValue(decimal newValue)
+    {
+        if (activeItemForNumpad == null) return;
+        if (activeField == nameof(IItemTransactionLine.Quantity)) activeItemForNumpad.Quantity = newValue;
+        else if (activeField == nameof(IItemTransactionLine.UnitPriceOrCost)) activeItemForNumpad.UnitPriceOrCost = newValue;
+        else if (activeField == nameof(IItemTransactionLine.DiscountAmountForUnit)) activeItemForNumpad.DiscountAmountForUnit = newValue;
+        await NotifyChange();
+    }
+}

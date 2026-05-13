@@ -1,0 +1,79 @@
+﻿@page "/admin/finance/currencies/edit/{Id:guid}"
+@inherits DataVanceBasePage
+@using DataVance.Application.Features.Currencies.Commands
+@using DataVance.Application.Features.Currencies.Queries
+@using MediatR
+@inject NavigationManager Nav
+
+<div class="container mt-4" dir="rtl">
+    <div class="card shadow border-0">
+        <div class="card-header bg-dark text-white">
+            <h4 class="mb-0">تعديل العملة: @model.Code</h4>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@model" OnValidSubmit="HandleUpdate">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">الاسم</label>
+                        <InputText @bind-Value="model.Name" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">الرمز (Symbol)</label>
+                        <InputText @bind-Value="model.Symbol" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">سعر الصرف الحالي</label>
+                        <InputNumber @bind-Value="model.CurrentRate" class="form-control" step="0.0001" />
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check form-switch mb-2">
+                            <InputCheckbox @bind-Value="model.IsActive" class="form-check-input" id="active" />
+                            <label class="form-check-label" for="active">نشط</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">حفظ التغييرات</button>
+                    <button type="button" class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/currencies")'>إلغاء</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private UpdateModel model = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+     
+        var currencies = await ExecuteAsync(new GetCurrenciesQuery());
+        var c = currencies.FirstOrDefault(x => x.Id == Id);
+        if (c != null)
+        {
+            model = new UpdateModel { 
+                Name = c.Name, 
+                Symbol = c.Symbol, 
+                CurrentRate = c.CurrentExchangeRate, 
+                IsActive = c.IsActive,
+                Code = c.Code 
+            };
+        }
+    }
+
+    private async Task HandleUpdate()
+    {
+        var command = new UpdateCurrencyCommand(Id, model.Name, model.Symbol, 2, model.IsActive, model.CurrentRate);
+        var success = await ExecuteAsync(command);
+        if (success) Nav.NavigateTo("/currencies");
+    }
+
+    public class UpdateModel {
+        public string Name { get; set; }
+        public string Code { get; set; } // للقراءة فقط
+        public string Symbol { get; set; }
+        public decimal CurrentRate { get; set; }
+        public bool IsActive { get; set; }
+    }
+}

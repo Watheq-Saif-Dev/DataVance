@@ -1,0 +1,87 @@
+﻿@using DataVance.Application.Common
+@using DataVance.Components.Common.Business.ModelDesgin
+@using DataVance.Components.Shared.GenericeModal
+@typeparam TItem where TItem : class, IItemTransactionLine, new()
+
+<tr @key="Item">
+    <td>
+        <LookupField @ref="LookupRef"
+                     Title="بحث الأصناف"
+                     OnGetData="OnGetItem"
+                     DisplayName="@Item.Barcode"
+                     OnSelected="HandleItemInternal"
+                     CustomColumns="ItemColumns" />
+    </td>
+    <td>
+        <div class="fw-bold small text-truncate" style="max-width: 150px;" title="@Item.ItemName">
+            @Item.ItemName
+        </div>
+    </td>
+    <td>
+        <select class="form-select form-select-sm border-0 bg-light" @bind="Item.WarehouseId">
+            <option value="@Item.WarehouseId">@Item.WarehouseName</option>
+        </select>
+    </td>
+    <td class="text-center">
+        <LookupField Title="بحث الوحدات"
+                     OnGetData="() => OnGetUnit(Item)"
+                     DisplayName="@Item.UnitName"
+                     OnSelected="HandleUnitInternal"
+                     CustomColumns="UnitColumns" />
+    </td>
+
+    <td>
+        <div class="qty-group">
+            <input type="number" class="form-control"
+                   @onclick="@(() => OnOpenNumpad.InvokeAsync((Item, nameof(IItemTransactionLine.Quantity))))"
+                   @bind="Item.Quantity" @bind:event="oninput" @onchange="OnChanged" />
+        </div>
+    </td>
+    <td>
+        <div class="qty-group">
+            <input type="number" class="form-control"
+                   @bind="Item.UnitPriceOrCost" @bind:event="oninput" @onchange="OnChanged" 
+                   @onclick="@(() => OnOpenNumpad.InvokeAsync((Item, nameof(IItemTransactionLine.UnitPriceOrCost))))" />
+        </div>
+    </td>
+    <td>
+        <div class="qty-group">
+            <input type="number" class="form-control"
+                   @bind="Item.DiscountAmountForUnit" @bind:event="oninput" @onchange="OnChanged" 
+                   @onclick="@(() => OnOpenNumpad.InvokeAsync((Item, nameof(IItemTransactionLine.DiscountAmountForUnit))))" />
+        </div>
+    </td>
+    <td class="text-end small">
+        <span class="text-muted">@Item.TotalTax.ToString("N2")</span>
+    </td>
+    <td class="text-end fw-bold text-primary">
+        @Item.TotalAmount.ToString("N2")
+    </td>
+    <td class="text-center">
+        <button type="button" class="btn btn-link btn-sm text-danger p-0" @onclick="() => OnDelete.InvokeAsync(Item)">
+            <i class="bi bi-x-circle-fill fs-5"></i>
+        </button>
+    </td>
+</tr>
+@code {
+    [Parameter] public TItem Item { get; set; } = default!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public EventCallback<TItem> OnDelete { get; set; }
+    [Parameter] public EventCallback<(TItem item, string field)> OnOpenNumpad { get; set; }
+    
+    [Parameter] public Func<Task<List<LookupItem>>> OnGetItem { get; set; } = default!;
+    [Parameter] public Func<TItem, Task<List<LookupItem>>> OnGetUnit { get; set; } = default!;
+    
+    [Parameter] public EventCallback<(TItem item, LookupItem res)> OnItemRowSelected { get; set; }
+    [Parameter] public EventCallback<(TItem item, LookupItem res)> OnUnitRowSelected { get; set; }
+
+    [Parameter] public Dictionary<string, string> ItemColumns { get; set; } = new();
+    [Parameter] public Dictionary<string, string> UnitColumns { get; set; } = new();
+
+    public LookupField? LookupRef;
+
+    public async Task FocusAsync() => await (LookupRef?.FocusAsync() ?? Task.CompletedTask);
+
+    private async Task HandleItemInternal(LookupItem res) => await OnItemRowSelected.InvokeAsync((Item, res));
+    private async Task HandleUnitInternal(LookupItem res) => await OnUnitRowSelected.InvokeAsync((Item, res));
+}

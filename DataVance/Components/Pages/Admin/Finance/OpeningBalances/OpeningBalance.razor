@@ -1,0 +1,99 @@
+﻿@page "/finance/opening-balances"
+@using DataVance.Application.Features.OpeningBalances.Commands
+@using DataVance.Application.Features.OpeningBalances.DTOs
+@using DataVance.Application.Features.OpeningBalances.Queries
+@inherits DataVanceBasePage
+
+
+<div class="container-fluid mt-4">
+    <h4 class="mb-4">ط¥ط¯ط§ط±ط© ط§ظ„ط£ط±طµط¯ط© ط§ظ„ط§ظپطھطھط§ط­ظٹط©</h4>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <p class="mb-0">طھط±ط­ظٹظ„ ظƒط§ظپط© ط§ظ„ط£ط±طµط¯ط© ط؛ظٹط± ط§ظ„ظ…ط±ط­ظ‘ظ„ط© ظپظٹ ظ‚ظٹط¯ ظٹظˆظ…ظٹط© ظˆط§ط­ط¯ ظ…ط¬ظ…ط¹.</p>
+            <button class="btn btn-primary" 
+                    @onclick="PostAllBalances" 
+                    disabled="@IsLoading">
+                @if (IsLoading)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span> ط¬ط§ط±ظٹ ط§ظ„طھط±ط­ظٹظ„...</span>
+                }
+                else
+                {
+                    <i class="bi bi-file-earmark-post"></i> <span> ط§ط¹طھظ…ط§ط¯ ظˆطھط±ط­ظٹظ„ ط§ظ„ظƒظ„</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>ط§ظ„طھط§ط±ظٹط®</th>
+                    <th>ط§ظ„ظپط±ط¹</th>
+                    <th>ط§ظ„ط¹ظ…ظ„ط©</th>
+                    <th>ط³ط¹ط± ط§ظ„طµط±ظپ</th>
+                    <th>ط¹ط¯ط¯ ط§ظ„ط­ط³ط§ط¨ط§طھ</th>
+                    <th>ط§ظ„ط¥ط¬ظ…ط§ظ„ظٹ (ظ…ط¯ظٹظ†)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_unpostedBalances == null || !_unpostedBalances.Any())
+                {
+                    <tr>
+                        <td colspan="6" class="text-center py-4">ظ„ط§ طھظˆط¬ط¯ ط£ط±طµط¯ط© ط§ظپطھطھط§ط­ظٹط© ط¨ط§ظ†طھط¸ط§ط± ط§ظ„طھط±ط­ظٹظ„.</td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var context in _unpostedBalances)
+                    {
+                        <tr>
+                            <td>@context.OpeningDate.ToShortDateString()</td>
+                            <td>@context.BranchId</td>
+                            <td>@context.CurrencyCode</td>
+                            <td>@context.ExchangeRate</td>
+                            <td>@context.Lines.Count</td>
+                            <td>@context.Lines.Sum(x => x.Debit).ToString("N2")</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private IEnumerable<OpeningBalanceDto> _unpostedBalances = new List<OpeningBalanceDto>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        IsLoading = true;
+        // ظ‡ظ†ط§ ظ†ط³طھط¯ط¹ظٹ Query ظ„ط¬ظ„ط¨ ط§ظ„ط¨ظٹط§ظ†ط§طھ ط؛ظٹط± ط§ظ„ظ…ط±ط­ظ‘ظ„ط© ظ…ظ† ط§ظ„ظ…ط³طھظˆط¯ط¹
+        // _unpostedBalances = await ExecuteAsync(new GetUnpostedBalancesQuery());
+        IsLoading = false;
+    }
+
+    private async Task PostAllBalances()
+    {
+        // ط§ط³طھط®ط¯ط§ظ… ط§ظ„ظ…ط­ط±ظƒ ط§ظ„ظ…ظˆط­ط¯ ظ…ظ† FinancialBaseComponent
+        var result = await ExecuteAsync(
+            new PostAllOpeningBalancesCommand { BranchId = Guid.Empty }, 
+            "طھظ… طھط±ط­ظٹظ„ ظƒط§ظپط© ط§ظ„ط£ط±طµط¯ط© ظˆطھط­ط¯ظٹط« ط£ط±طµط¯ط© ط§ظ„ط­ط³ط§ط¨ط§طھ ط¨ظ†ط¬ط§ط­."
+        );
+
+        // ط¥ط°ط§ ظ†ط¬ط­طھ ط§ظ„ط¹ظ…ظ„ظٹط© (ظ†ظپطھط±ط¶ ط£ظ† Result ظٹط­طھظˆظٹ ط¹ظ„ظ‰ Succeeded)
+        // if (result != null && result.Succeeded)
+        // {
+        //     await LoadData(); طھط­ط¯ظٹط« ط§ظ„ط¬ط¯ظˆظ„
+        // }
+    }
+}
+

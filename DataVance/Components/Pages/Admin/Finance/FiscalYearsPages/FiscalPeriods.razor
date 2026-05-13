@@ -1,0 +1,110 @@
+﻿@page "/finance/setup/fiscal-years/{YearId:guid}/periods"
+@using DataVance.Application.Features.FiscalYears.Commands
+@using DataVance.Application.Features.FiscalYears.DTOs
+@using DataVance.Application.Features.FiscalYears.Queries
+
+
+@inherits DataVanceBasePage
+
+<div class="container-fluid mt-4 rtl">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-primary">تفاصيل الفترات المحاسبية</h3>
+            <p class="text-muted">إدارة إغلاق وفتح الشهور وفترة التسويات</p>
+        </div>
+        <a href="/finance/setup/fiscal-years" class="btn btn-outline-secondary">
+            <i class="oi oi-arrow-right me-1"></i> العودة للسنوات
+        </a>
+    </div>
+
+    @if (IsLoading && _periods == null)
+    {
+        <div class="text-center mt-5">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 text-center">
+                    <thead class="bg-primary text-white">
+                        <tr>
+                            <th>#</th>
+                            <th>اسم الفترة</th>
+                            <th>تاريخ البداية</th>
+                            <th>تاريخ النهاية</th>
+                            <th>الحالة</th>
+                            <th>التحكم</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (_periods != null) // تأكد من وجود هذا الشرط قبل الجدول
+                        {
+                        @foreach (var period in _periods.OrderBy(p => p.MonthNumber))
+                        {
+                            <tr class="@(period.IsClosingPeriod ? "table-warning" : "")">
+                                <td class="fw-bold">@period.MonthNumber</td>
+                                <td>
+                                    @period.Name
+                                    @if (period.IsClosingPeriod)
+                                    {
+                                        <span class="badge bg-dark ms-1">تسويات</span>
+                                    }
+                                </td>
+                                <td>@period.StartDate.ToString("yyyy/MM/dd")</td>
+                                <td>@period.EndDate.ToString("yyyy/MM/dd")</td>
+                                <td>
+                                    <span class="badge @(period.IsClosed ? "bg-danger" : "bg-success")">
+                                        @(period.IsClosed ? "مغلقة" : "مفتوحة")
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm @(period.IsClosed ? "btn-success" : "btn-danger")"
+                                            @onclick="() => ToggleStatus(period.Id, !period.IsClosed)"
+                                            disabled="@IsLoading">
+                                        <i class="oi @(period.IsClosed ? "oi-lock-unlocked" : "oi-lock-locked") me-1"></i>
+                                        @(period.IsClosed ? "فتح الفترة" : "إغلاق الفترة")
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                        }
+                        else
+                        {
+                            <p>جاري تحميل البيانات...</p>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid YearId { get; set; }
+    private List<FiscalPeriodDto>? _periods;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPeriods();
+    }
+
+    private async Task LoadPeriods()
+    {
+        // استعلام لجلب فترات السنة المحددة عبر Dapper
+        _periods = await ExecuteAsync(new GetFiscalPeriodsQuery());
+    }
+
+    private async Task ToggleStatus(Guid periodId, bool newStatus)
+    {
+        var msg = newStatus ? "تم إغلاق الفترة بنجاح" : "تم إعادة فتح الفترة بنجاح";
+        var result = await ExecuteAsync(new TogglePeriodStatusCommand(periodId, newStatus), msg);
+
+        if (result)
+        {
+            await LoadPeriods();
+        }
+    }
+}
+

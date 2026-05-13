@@ -1,0 +1,64 @@
+﻿@page "/admin/permissions-list"
+@using DataVance.Application.Security.DTO
+@using DataVance.Application.Security.Service
+@inject IIdentityService IdentityService
+@inject IPermissionService PermissionService
+@inject NavigationManager Navigation
+
+<div class="container-fluid shadow-sm p-4 bg-white rounded">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="text-primary"><i class="bi bi-shield-lock-fill"></i> إدارة صلاحيات المستخدمين</h3>
+    </div>
+
+    <table class="table table-hover border">
+        <thead class="table-light">
+            <tr>
+                <th>المستخدم</th>
+                <th>البريد الإلكتروني</th>
+                <th>الصلاحيات الحالية</th>
+                <th class="text-center">الإجراءات</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in _usersWithPermissions)
+            {
+                <tr>
+                    <td class="fw-bold">@user.UserName</td>
+                    <td>@user.Email</td>
+                    <td>
+                        @if (user.Permissions.Any())
+                        {
+                            @foreach (var p in user.Permissions)
+                            {
+                                <span class="badge bg-info text-dark me-1">@p</span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted small">لا توجد صلاحيات</span>
+                        }
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EditPermissions(user.Id)">
+                            <i class="bi bi-pencil-square"></i> تعديل الصلاحيات
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private List<UserPermissionViewModel> _usersWithPermissions = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // جلب المستخدمين وصلاحياتهم (سنحتاج لتجهيز هذه الدالة في IdentityService)
+        // _usersWithPermissions = await IdentityService.GetAllUsersWithPermissionsAsync();
+    }
+
+    private void EditPermissions(Guid userId) => Navigation.NavigateTo($"/admin/permissions/{userId}");
+
+  
+}

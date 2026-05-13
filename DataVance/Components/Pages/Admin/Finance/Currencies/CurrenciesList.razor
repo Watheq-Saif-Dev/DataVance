@@ -1,0 +1,168 @@
+﻿@page "/currencies"
+@inherits DataVanceBasePage
+@using DataVance.Application.Features.Currencies.Commands
+@using DataVance.Application.Features.Currencies.DTOs
+@using DataVance.Application.Features.Currencies.Queries
+@using MediatR
+@inject NavigationManager Nav
+
+<div class="container-fluid mt-4" dir="rtl">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary fw-bold">
+            <i class="bi bi-wallet2"></i> إدارة العملات وأسعار الصرف
+        </h2>
+        <button class="btn btn-success shadow-sm" @onclick="NavigateToCreate">
+            <i class="bi bi-plus-circle"></i> إضافة عملة جديدة
+        </button>
+    </div>
+
+    @if (currencies == null)
+    {
+        <div class="d-flex justify-content-center my-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <span class="ms-3">جاري تحميل البيانات...</span>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">الرمز</th>
+                                <th>اسم العملة</th>
+                                <th>العلامة</th>
+                                <th>سعر الصرف (مقابل الأساس)</th>
+                                <th>الحالة</th>
+                                <th class="text-center">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in currencies)
+                            {
+                                <tr>
+                                    <td class="ps-4">
+                                        <span class="fw-bold text-dark">@item.Code</span>
+                                        @if (item.IsBaseCurrency)
+                                        {
+                                            <span class="badge bg-primary ms-2">الأساسية</span>
+                                        }
+                                    </td>
+                                    <td>@item.Name</td>
+                                    <td><span class="badge bg-light text-dark border">@item.Symbol</span></td>
+                                    <td>
+                                        <span class="text-success fw-bold">@item.CurrentExchangeRate.ToString("N4")</span>
+                                    </td>
+                                    <td>
+                                        @if (item.IsActive)
+                                        {
+                                            <span class="badge rounded-pill bg-success-subtle text-success border border-success">نشط</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge rounded-pill bg-danger-subtle text-danger border border-danger">موقوف</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-warning me-1" title="تعديل البيانات"
+                                                @onclick="() => NavigateToEdit(item.Id)">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+
+                                        <button class="btn btn-sm btn-outline-primary me-1" title="تحديث السعر فقط"
+                                                @onclick="() => OpenUpdateModal(item.Id, item.Code)">
+                                            <i class="bi bi-graph-up-arrow"></i>
+                                        </button>
+
+                                        <button class="btn btn-sm btn-outline-secondary" title="سجل الأسعار"
+                                                @onclick="() => NavigateToHistory(item.Id)">
+                                            <i class="bi bi-clock-history"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@* Modal بسيط لتعديل سعر الصرف - يمكن تطويره لمكون منفصل *@
+@if (showUpdateModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">تحديث سعر صرف @selectedCurrencyCode</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">سعر الصرف الجديد</label>
+                        <input type="number" step="0.0001" class="form-control form-control-lg" @bind="newRate" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-light" @onclick="CloseModal">إلغاء</button>
+                    <button class="btn btn-primary" @onclick="UpdateExchangeRate">تحديث الآن</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IEnumerable<CurrencyDto> currencies;
+    private bool showUpdateModal = false;
+    private Guid selectedCurrencyId;
+    private string selectedCurrencyCode;
+    private decimal newRate;
+
+    // 1. عند تشغيل الصفحة، نقوم بطلب البيانات عبر الـ Query
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        // استدعاء الـ Query مباشرة عبر Mediator
+        currencies = await ExecuteAsync(new GetCurrenciesQuery());
+    }
+
+    private void NavigateToCreate() => Nav.NavigateTo("/currencies/create");
+
+    private void OpenUpdateModal(Guid id, string code)
+    {
+        selectedCurrencyId = id;
+        selectedCurrencyCode = code;
+        newRate = 0;
+        showUpdateModal = true;
+    }
+
+    private void CloseModal() => showUpdateModal = false;
+    private void NavigateToEdit(Guid id)
+    {
+        Nav.NavigateTo($"/admin/finance/currencies/edit/{id}");
+    }
+
+    private void NavigateToHistory(Guid id)
+    {
+        Nav.NavigateTo($"/admin/finance/currencies/history/{id}");
+    }
+    // 2. تحديث السعر مباشرة عبر الـ Command
+    private async Task UpdateExchangeRate()
+    {
+        var result = await ExecuteAsync(new UpdateExchangeRateCommand(selectedCurrencyId, newRate, DateTime.UtcNow));
+        if (result)
+        {
+            showUpdateModal = false;
+            await LoadData(); // إعادة تحميل البيانات ليعكس السعر الجديد
+        }
+    }
+}

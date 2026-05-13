@@ -1,0 +1,122 @@
+﻿@page "/admin/events"
+@inherits DataVanceBasePage
+@using DataVance.Application.Features.EventManagement.Commands
+@using DataVance.Application.Features.EventManagement.DTOs
+@using DataVance.Application.Features.EventManagement.Queries
+@using DataVance.Application.Security.DTO
+@using DataVance.Application.Security.Queries
+@using MediatR
+@inject IJSRuntime JS
+<div class="o_action_manager">
+    <div class="o_control_panel">
+        <div class="o_breadcrumb">
+            <ol class="breadcrumb">
+                <li class="active">ظ„ظˆط­ط© طھط­ظƒظ… ط§ظ„ط£ط­ط¯ط§ط« ظˆط§ظ„طµظ„ط§ط­ظٹط§طھ ط§ظ„ظ…طھظ‚ط¯ظ…ط©</li>
+            </ol>
+        </div>
+        <div class="o_cp_button_holder">
+            <button class="btn btn-primary" @onclick="@(() => OpenDialog("Event"))">ط¥ظ†ط´ط§ط، ط­ط¯ط«</button>
+            <button class="btn btn-secondary" @onclick="@(() => OpenDialog("Trigger"))">ط±ط¨ط· ط¹ظ…ظ„ظٹط©</button>
+            <button class="btn btn-info" @onclick="@(() => OpenDialog("Permission"))">ط¥ط¶ط§ظپط© طµظ„ط§ط­ظٹط©</button>
+        </div>
+    </div>
+
+    <div class="o_content">
+        <ul class="nav nav-tabs o_nav_tabs">
+            <li class="@(ActiveTab == "Events" ? "active" : "")" @onclick="@(() => ActiveTab = "Events")"><a>ط§ظ„ط£ط­ط¯ط§ط«</a></li>
+          
+            <li class="@(ActiveTab == "Triggers" ? "active" : "")" @onclick="@(() => ActiveTab = "Triggers")"><a>ط§ظ„ط±ظˆط§ط¨ط· (Triggers)</a></li>
+
+            <li class="@(ActiveTab == "Permissions" ? "active" : "")" @onclick="@(() => ActiveTab = "Permissions")"><a>ط§ظ„طµظ„ط§ط­ظٹط§طھ ط§ظ„ط§ط³طھط«ظ†ط§ط¦ظٹط©</a></li>
+        </ul>
+
+        <div class="tab-content pa-4">
+            @if (ActiveTab == "Events")
+            {
+                <table class="o_list_view table">
+                    <thead><tr><th>ط§ظ„ط§ط³ظ…</th><th>ط§ظ„ظƒظˆط¯</th><th>ط§ظ„ظ…ظˆط¯ظٹظˆظ„</th><th>ط­ط§ظ„ط©</th><th>ط¥ط¯ط§ط±ط©</th></tr></thead>
+                    <tbody>
+                        @foreach (var ev in Data.Events)
+                        {
+                            <tr>
+                                <td>@ev.DisplayName</td>
+                                <td><code>@ev.Code</code></td>
+                                <td>@ev.Module</td>
+                                <td>@(ev.IsActive ? "ظ†ط´ط·" : "ظ…طھظˆظ‚ظپ")</td>
+                                <td><button class="btn btn-sm btn-default" @onclick="@(() => OpenDialog("Event", ev))">طھط¹ط¯ظٹظ„</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else if (ActiveTab == "Triggers")
+            {
+                <table class="o_list_view table">
+                    <thead><tr><th>ط§ظ„ط¹ظ…ظ„ظٹط©</th><th>ط§ظ„ط­ط¯ط«</th><th>ط§ظ„طھط±طھظٹط¨</th><th>ط¥ط¯ط§ط±ط©</th></tr></thead>
+                    <tbody>
+                        @foreach (var trg in Data.Triggers)
+                        {
+                            <tr>
+                                <td>@trg.OperationCode</td>
+                                <td>@trg.EventName</td>
+                                <td>@trg.ExecutionOrder</td>
+                                <td><button class="btn btn-sm btn-default" @onclick="@(() => OpenDialog("Trigger", trg))">طھط¹ط¯ظٹظ„</button>
+                                    <button class="btn btn-sm btn-danger" @onclick="@(() => Delete(trg.Id, "Trigger"))">ط­ط°ظپ</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <table class="o_list_view table">
+                    <thead><tr><th>ط§ظ„ظ…ط³طھظ‡ط¯ظپ</th><th>ط§ظ„ظ†ظˆط¹</th><th>ط§ظ„ط­ط¯ط«</th><th>ط§ظ„ظپط±ط¹/ط§ظ„ظ…ط®ط²ظ†</th><th>ط§ظ„ط³ظ‚ظپ ط§ظ„ظ…ط§ظ„ظٹ</th><th>ط¥ط¯ط§ط±ط©</th></tr></thead>
+                    <tbody>
+                        @foreach (var per in Data.Permissions)
+                        {
+                            <tr>
+                                <td>@per.TargetId</td>
+                                <td>@per.TargetType</td>
+                                <td>@per.EventName</td>
+                                <td>@(per.BranchId?.ToString() ?? "ط§ظ„ظƒظ„")</td>
+                                <td>@per.MaxAmount</td>
+                                <td><button class="btn btn-sm btn-default" @onclick="@(() => OpenDialog("Permission", per))">طھط¹ط¯ظٹظ„</button>
+                                </td>
+
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>
+
+@if (ShowDialog)
+{
+    <EventDialog Type="@DialogType" Model="@SelectedModel" OnClose="CloseDialog" />
+}
+
+@code {
+    private string ActiveTab = "Events";
+    private bool ShowDialog = false;
+    private string DialogType = "";
+    private object? SelectedModel = null;
+    private EventManagementDto Data = new();
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+    private async Task LoadData() => Data = await ExecuteAsync(new GetEventDashboardQuery());
+    private void OpenDialog(string type, object? model = null) { DialogType = type; SelectedModel = model; ShowDialog = true; }
+    private async Task CloseDialog(bool refresh) { ShowDialog = false; if (refresh) await LoadData(); }
+    private async Task Delete(Guid id, string table)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "ظ‡ظ„ ط£ظ†طھ ظ…طھط£ظƒط¯ ظ…ظ† ط§ظ„ط­ط°ظپطں");
+        if (confirmed)
+        {
+            await ExecuteAsync(new DeleteEntityCommand(id, table));
+            await LoadData();
+        }
+    }
+}
+

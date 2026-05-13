@@ -1,0 +1,95 @@
+﻿@page "/account/login"
+@inherits DataVanceBasePage
+@using DataVance.Application.SharedAgg.BrancheSystem.Quer
+@using MediatR
+@inject NavigationManager Navigation
+
+<div class="login-wrapper" >
+    <div class="login-aside d-none d-lg-flex">
+        <div class="aside-content text-white">
+            <h1 class="display-4 fw-bold">DataVance ERP</h1>
+            <p class="lead">حلول ذكية لإدارة متكاملة ومستقبل تقني متطور.</p>
+            <div class="features-list mt-5">
+                <div class="feature-item"><i class="bi bi-check-circle-fill me-2"></i> إدارة المحاسبة والمستودعات</div>
+                <div class="feature-item"><i class="bi bi-check-circle-fill me-2"></i> تقارير وتحليلات ذكية</div>
+                <div class="feature-item"><i class="bi bi-check-circle-fill me-2"></i> نظام صلاحيات متقدم</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="login-main">
+        <div class="login-card shadow-lg">
+            <div class="login-header text-center">
+                <div class="brand-logo mb-3">
+                    <i class="bi bi-grid-3x3-gap-fill"></i>
+                </div>
+                <h3 class="fw-bold">تسجيل الدخول</h3>
+                <p class="text-muted small">يرجى إدخال بيانات الاعتماد للوصول إلى لوحة التحكم</p>
+            </div>
+
+            <form action="/api/auth/login" method="post" class="mt-4">
+                <div class="form-floating mb-3">
+                    <input @bind="emailValue" name="email" @onblur="getBranch" type="email" class="form-control" id="emailInput" placeholder="name@company.com" required>
+                    <label for="emailInput"><i class="bi bi-envelope me-2"></i>البريد الإلكتروني</label>
+                </div>
+
+                <div class="form-floating mb-3">
+                    <input name="password" type="password" class="form-control" id="passInput" placeholder="Password" required>
+                    <label for="passInput"><i class="bi bi-lock me-2"></i>كلمة المرور</label>
+                </div>
+
+                <div class="form-group mb-4">
+                    <label class="form-label small fw-bold text-secondary">فرع العمل الحالي</label>
+                    <div class="input-group" >
+                        <span class="input-group-text bg-white"><i class="bi bi-geo-alt"></i></span>
+                        <select name="branchId" 
+                            class="form-select form-select-lg border-end-0" required>
+                            <option value="">-- اختر الفرع --</option>
+                            @foreach (var branch in _branches)
+                            {
+                                <option value="@branch.Id">@branch.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                @if (Navigation.Uri.Contains("error=invalid"))
+                {
+                    <div class="alert alert-danger border-0 small d-flex align-items-center mb-4">
+                        <i class="bi bi-exclamation-octagon-fill me-2"></i>
+                        <div>خطأ في البريد أو كلمة المرور أو الفرع</div>
+                    </div>
+                }
+
+                <button type="submit" class="btn btn-primary btn-lg w-100 shadow rounded-3 py-3 fw-bold">
+                    دخول النظام <i class="bi bi-arrow-left-short fs-4"></i>
+                </button>
+            </form>
+
+            <div class="login-footer mt-5 text-center">
+                <hr class="text-muted opacity-25" />
+                <p class="text-muted x-small mb-0">جميع الحقوق محفوظة لشركة **داتا فانس** &copy; 2026</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<BranchDto> _branches = new();
+    private string emailValue { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+
+    }
+
+    private async Task getBranch()
+    {
+        if (string.IsNullOrEmpty(emailValue)) return;
+
+        try
+        {
+            _branches = await ExecuteAsync(new GetBranchesQuery(emailValue));
+        }
+        catch { }
+    }
+}

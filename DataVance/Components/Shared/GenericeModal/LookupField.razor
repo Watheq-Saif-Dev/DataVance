@@ -1,0 +1,100 @@
+﻿@using DataVance.Application.Common
+@implements IFocusableLookup
+@inject IJSRuntime JSRuntime
+
+<div class="input-group input-group-sm flex-nowrap shadow-sm rounded" 
+                @onfocus="OnFocus" dir="rtl">
+
+    <input @ref="inputElement"
+           type="text"
+           class="form-control border-start-0 rounded-end shadow-none"
+           style="border-top-left-radius: 0; border-bottom-left-radius: 0;"
+           value="@DisplayName"
+   
+           @onkeydown="HandleKeyDown"
+           @onclick="HandleClick"
+           placeholder="ابحث هنا..."
+           readonly />
+
+
+    <button class="btn btn-primary border-0 px-3"
+            style="border-top-right-radius: 0; border-bottom-right-radius: 0; border-top-left-radius: 0.375rem; border-bottom-left-radius: 0.375rem;"
+            type="button"
+            @onclick="OpenSearch">
+            
+        <i class="bi bi-search"></i>
+    </button>
+</div>
+
+
+@* readonly *@
+@code {
+    // [CascadingParameter] public DataVanceBasePage ParentPage { get; set; } = default!;
+    [CascadingParameter] public DataVanceBasePage? ParentPage { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string? DisplayName { get; set; }
+
+    [Parameter] public Dictionary<string, string>? CustomColumns { get; set; }
+    [Parameter] public Func<Task<List<LookupItem>>> OnGetData { get; set; } = default!;
+    [Parameter] public EventCallback<LookupItem> OnSelected { get; set; }
+    
+
+    private ElementReference inputElement;
+
+    // private void OnFocus() => ParentPage.ActiveLookup = this;
+
+    private void OnFocus()
+    {
+        if (ParentPage != null) ParentPage.ActiveLookup = this;
+    }
+    private async Task HandleClick()
+    {
+        await OpenSearch();
+    }
+    public async Task OpenSearch()
+    {
+        var data = await OnGetData.Invoke();
+
+        var columns = CustomColumns;
+    
+        if (columns == null)
+        {
+            columns = new Dictionary<string, string> { { "Code", "الكود" }, { "Name", "البيان" } };
+            // إضافة الـ ExtraData تلقائياً كما في الخيار الأول
+            var extraKeys = data.FirstOrDefault()?.ExtraData?.Keys;
+            if (extraKeys != null)
+                foreach (var key in extraKeys) columns[key] = key;
+        }
+       
+        await ParentPage.DisplayModalOnly(Title, data, async (item) =>
+        {
+            await OnSelected.InvokeAsync(item);
+            StateHasChanged();
+            await Task.Delay(150);
+            await JSRuntime.InvokeVoidAsync("focusNextElement", inputElement);
+        }, columns);
+    }
+
+    public async Task FocusAsync()
+    {
+      
+        await JSRuntime.InvokeVoidAsync("focusElement", inputElement);
+    }
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            // المنطق: إذا كان الحقل يحتوي على اسم (بيانات)، انتقل للحقل التالي
+            if (!string.IsNullOrEmpty(DisplayName))
+            {
+                await JSRuntime.InvokeVoidAsync("focusNextElement", inputElement);
+            }
+            else
+            {
+                // إذا كان فارغاً، اختيارياً: يمكنك فتح البحث تلقائياً
+                await OpenSearch();
+            }
+        }
+      
+    }
+}

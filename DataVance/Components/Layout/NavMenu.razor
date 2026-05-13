@@ -1,0 +1,147 @@
+﻿@implements IDisposable
+@using DataVance.Application.AlertServices
+@inject IStatusMessageService StatusService
+<div class="nav-wrapper @(IsGlobalLoading ? "loading-disabled" : "")">
+    <div class="nav-container @(IsCollapsed ? "collapsed" : "")">
+
+        <div class="nav-section">
+            <div class="section-title">ط§ظ„ط¹ط§ظ…ط©</div>
+            <NavLink class="nav-link-custom" href="/" Match="NavLinkMatch.All">
+                <i class="bi bi-speedometer2 icon"></i>
+                <span class="text">ظ„ظˆط­ط© ط§ظ„طھط­ظƒظ…</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-section">
+            <button class="nav-link w-100 text-start d-flex justify-content-between align-items-center"
+                    @onclick='() => ToggleMenu("accounts")'>
+                <span><i class="bi bi-calculator me-2"></i> <span class="SpanCollapse">  ط§ظ„ظ†ط¸ط§ظ… ط§ظ„ظ…ط§ظ„ظٹ </span></span>
+                <i class="bi @(_activeMenu == "accounts" ? "bi-chevron-down" : "bi-chevron-left") small"></i>
+            </button>
+            <div class="sub-menu @(_activeMenu == "accounts" ? "show" : "collapse")">
+                <NavLink class="nav-link-custom" href="/finance/dashboard">
+                    <i class="bi bi-speedometer2 me-2"></i>
+                    <span class="text">ظ„ظˆط­ط© ط§ظ„ظ…ط§ظ„ظٹط©</span>
+                </NavLink>
+                <NavLink class="nav-link-custom" href="/finance/transactions/journal-entries/create">
+                    <i class="bi bi-journal-text me-2"></i>
+                    <span class="text">ظ‚ظٹط¯ ظٹظˆظ…ظٹط© ط¬ط¯ظٹط¯</span>
+                </NavLink>
+                <NavLink class="nav-link-custom" href="/finance/reports/trial-balance">
+                    <i class="bi bi-graph-up me-2"></i>
+                    <span class="text">ظ…ظٹط²ط§ظ† ط§ظ„ظ…ط±ط§ط¬ط¹ط©</span>
+                </NavLink>
+                <NavLink class="nav-link-custom" href="/finance/setup/fiscal-years">
+                    <i class="bi bi-calendar3 me-2"></i>
+                    <span class="text">ط§ظ„ط³ظ†ظˆط§طھ ط§ظ„ظ…ط§ظ„ظٹط©</span>
+                </NavLink>
+                <NavLink class="nav-link-custom" href="/finance/opening-balances">
+                    <i class="bi bi-journal-bookmark me-2"></i>
+                    <span class="text">ط§ظ„ط£ط±طµط¯ط© ط§ظ„ط§ظپطھطھط§ط­ظٹط©</span>
+                </NavLink>
+                <NavLink class="nav-link-custom" href="/currencies">
+                    <i class="bi bi-currency-exchange me-2"></i>
+                    <span class="text">ط§ظ„ط¹ظ…ظ„ط§طھ</span>
+                </NavLink>
+            </div>
+        </div>
+
+        <div class="nav-section">
+            <button class="nav-link w-100 text-start d-flex justify-content-between align-items-center"
+                    @onclick='() => ToggleMenu("inventory")'>
+                <span><i class="bi bi-box-seam me-2"></i> <span class="SpanCollapse">  ط¥ط¯ط§ط±ط© ط§ظ„ظ…ط®ط§ط²ظ† </span></span>
+                <i class="bi @(_activeMenu == "inventory" ? "bi-chevron-down" : "bi-chevron-left") small"></i>
+            </button>
+            <div class="sub-menu @(_activeMenu == "inventory" ? "show" : "collapse")">
+                <NavLink class="nav-link-custom" href="/warehouses">
+                    <i class="bi bi-house-door icon"></i>
+                    <span class="text">ط§ظ„ظ…ط³طھظˆط¯ط¹ط§طھ</span>
+                </NavLink>
+                <NavLink class="nav-link-custom" href="/purchase-receipts/create">
+                    <i class="bi bi-receipt me-2"></i>
+                    <span class="text">ط¥ظٹطµط§ظ„ ط§ط³طھظ„ط§ظ…</span>
+                </NavLink>
+            </div>
+        </div>
+
+        <div class="nav-section">
+            <button class="nav-link w-100 text-start d-flex justify-content-between align-items-center"
+                    @onclick='() => ToggleMenu("admin")'>
+                <span><i class="bi bi-shield-lock me-2"></i> <span class="SpanCollapse">  ط§ظ„ط¥ط¯ط§ط±ط© ظˆط§ظ„ط£ظ…ط§ظ† </span></span>
+                <i class="bi @(_activeMenu == "admin" ? "bi-chevron-down" : "bi-chevron-left") small"></i>
+            </button>
+            <div class="sub-menu @(_activeMenu == "admin" ? "show" : "collapse")">
+                <NavLink class="nav-link-custom" href="/admin/permissions">
+                    <i class="bi bi-person-lock me-2"></i>
+                    <span class="text">ط§ظ„طµظ„ط§ط­ظٹط§طھ</span>
+                </NavLink>
+                <NavLink class="nav-link-custom" href="/admin/permissionss">
+                    <i class="bi bi-diagram-3 me-2"></i>
+                    <span class="text">ط¥ط¯ط§ط±ط© ط§ظ„طµظ„ط§ط­ظٹط§طھ</span>
+                </NavLink>
+                <NavLink class="nav-link-custom" href="/admin/audit-logs">
+                    <i class="bi bi-clock-history me-2"></i>
+                    <span class="text">ط³ط¬ظ„ط§طھ ط§ظ„ظ…ط±ط§ط¬ط¹ط©</span>
+                </NavLink>
+                <NavLink class="nav-link-custom" href="/admin/events">
+                    <i class="bi bi-lightning me-2"></i>
+                    <span class="text">ط§ظ„ط£ط­ط¯ط§ط«</span>
+                </NavLink>
+                <NavLink class="nav-link-custom" href="/security/roles">
+                    <i class="bi bi-people me-2"></i>
+                    <span class="text">ط§ظ„ط£ط¯ظˆط§ط±</span>
+                </NavLink>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    [Parameter] public bool IsCollapsed { get; set; }
+    private string _activeMenu = "";
+    private bool IsGlobalLoading = false;
+
+    protected override void OnInitialized()
+    {
+        StatusService.OnLoadingStateChanged += HandleLoadingStateChanged;
+    }
+
+    private void HandleLoadingStateChanged(bool isLoading)
+    {
+        IsGlobalLoading = isLoading;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        StatusService.OnLoadingStateChanged -= HandleLoadingStateChanged;
+    }
+
+    private void ToggleMenu(string menuName)
+    {
+        if (_activeMenu == menuName)
+        {
+            _activeMenu = "";
+        }
+        else
+        {
+            _activeMenu = menuName;
+        }
+    }
+}
+    private string _activeMenu = "";
+    private void ToggleMenu(string menuName)
+    {
+        if (_activeMenu == menuName)
+        {
+            _activeMenu = "";
+        }
+        else
+        {
+            _activeMenu = menuName;
+        }
+    }
+}
+
+

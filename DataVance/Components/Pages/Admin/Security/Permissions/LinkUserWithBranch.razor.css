@@ -1,0 +1,53 @@
+﻿/* SAP Fiori Aesthetic */
+    .fiori-card {
+        border-radius: 4px;
+        border-top: 5px solid #0854a0;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+
+    .fiori-list-item {
+        cursor: pointer;
+        border-left: 4px solid transparent;
+        transition: 0.2s;
+    }
+
+        .fiori-list-item.active {
+            background-color: #f2f7fc;
+            border-left-color: #0854a0;
+            font-weight: 600;
+        }
+
+    .fiori-header {
+        background: #fafafa;
+        border-bottom: 1px solid #dcdcdc;
+        padding: 1rem;
+    }
+
+    .fiori-section-title {
+        font-size: 0.85rem;
+        color: #666;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin: 1.5rem 0 1rem 0;
+    }
+
+    .fiori-switch-card {
+        border: 1px solid #e5e5e5;
+        border-radius: 4px;
+        padding: 12px;
+        transition: 0.2s;
+    }
+
+        .fiori-switch-card:hover {
+            border-color: #0854a0;
+            background: #f9f9f9;
+        }
+    /* أضف هذا في قسم الـ Style */
+    .dropdown-menu {
+        z-index: 1050; /* للتأكد من ظهورها فوق كل العناصر */
+    }
+
+    /* لمنع قص القائمة المنسدلة بسبب الـ overflow */
+    .card-body.overflow-auto {
+        position: relative;
+    }

@@ -1,0 +1,136 @@
+﻿
+@using DataVance.Application.Common
+@using Microsoft.AspNetCore.Components.Web
+@if (IsVisible)
+{
+    <div class="erp-modal-overlay">
+        <div class="erp-modal-content shadow-lg" @onkeydown="HandleKeyDown">
+            <div class="erp-modal-header">
+                <span><i class="oi oi-magnifying-glass"></i> @Title</span>
+                <button type="button" class="close-btn" @onclick="Close">&times;</button>
+            </div>
+
+            <div class="erp-modal-search">
+                <input @ref="SearchInput"
+                       type="text"
+                       class="form-control erp-search-input"
+                       placeholder="ابحث هنا (الاسم أو الكود)..."
+                       @bind="SearchTerm"
+                       @bind:event="oninput" />
+            </div>
+
+            <div class="erp-modal-body">
+                <table class="table table-sm table-hover erp-table">
+      
+                    <thead>
+                        <tr>
+                            @foreach (var col in ColumnHeaders)
+                            {
+                                <th>@col.Value</th> @* يعرض العنوان: "الكود"، "السعر"، إلخ *@
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                   
+                        @if (FilteredItems != null)
+                        {
+                            int index = 0;
+                        @foreach (var item in FilteredItems)
+                        {
+                                var currentIndex = index;
+                                <tr class="@(SelectedIndex == currentIndex ? "selected-row" : "")"
+                                @onclick="() => SelectItem(item)">
+                                @foreach (var col in ColumnHeaders)
+                                {
+                                    <td>@GetPropertyValue(item, col.Key)</td>
+                                }
+                            </tr>
+                                index++;
+                        }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="erp-modal-footer">
+                <small>أسهم الكيبورد للتنقل - Enter للاختيار - Esc للإغلاق</small>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback<LookupItem> OnItemSelected { get; set; }
+    private Dictionary<string, string> ColumnHeaders { get; set; } = new();
+    private bool IsVisible { get; set; }
+    private string Title { get; set; } = "بحث";
+    private string SearchTerm { get; set; } = "";
+    private List<LookupItem> Data { get; set; } = new();
+    private int SelectedIndex { get; set; } = 0;
+    private ElementReference SearchInput;
+
+    private IEnumerable<LookupItem> FilteredItems =>
+        string.IsNullOrWhiteSpace(SearchTerm)
+        ? Data
+        : Data.Where(x =>
+            // 1. البحث في الكود
+            x.Code.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+            // 2. البحث في الاسم
+            x.Name.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+           
+            // 3. البحث في أي بيانات إضافية ظاهرة (مثل السعر أو الملاحظات)
+            (x.ExtraData != null && x.ExtraData.Values.Any(v => v.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)) )
+        ) ;
+
+
+    public void Show(string title,  List<LookupItem> data, Dictionary<string, string>? columns = null)
+    {
+        Title = title;
+        Data = data;
+        SearchTerm = "";
+        ColumnHeaders = columns ?? new Dictionary<string, string> {
+            { "Code", "الكود" },
+            { "Name", "البيان" }
+        };
+        SelectedIndex = 0;
+        IsVisible = true;
+        StateHasChanged();
+
+        // تركيز الماوس على حقل البحث تلقائياً بعد الفتح
+        Task.Delay(100).ContinueWith(_ => SearchInput.FocusAsync());
+    }
+
+    public void Close()
+    {
+        IsVisible = false;
+        StateHasChanged();
+    }
+    private string GetPropertyValue(LookupItem item, string key)
+    {
+        // 1. فحص الحقول الأساسية
+        if (key == "Code") return item.Code;
+        if (key == "Name") return item.Name;
+        if (key == "ExchangeRate") return item.ExchangeRate.ToString("N2");
+
+        // 2. فحص الحقول الإضافية (مثل السعر أو الكمية)
+        if (item.ExtraData != null && item.ExtraData.ContainsKey(key))
+            return item.ExtraData[key];
+
+        return "";
+    }
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        var items = FilteredItems.ToList();
+        if (e.Key == "ArrowDown" && SelectedIndex < items.Count - 1) SelectedIndex++;
+        else if (e.Key == "ArrowUp" && SelectedIndex > 0) SelectedIndex--;
+        else if (e.Key == "Enter" && items.Any()) await SelectItem(items[SelectedIndex]);
+        else if (e.Key == "Escape") Close();
+    }
+
+    private async Task SelectItem(LookupItem item)
+    {
+        Close();
+        await OnItemSelected.InvokeAsync(item); 
+    }
+}
+

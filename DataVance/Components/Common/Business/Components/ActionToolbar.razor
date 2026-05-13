@@ -1,0 +1,104 @@
+﻿@using DataVance.Components.Common.Business
+@using DataVance.Components.Common.Business.ModelDesgin
+<div class="card mb-3 shadow-sm border-0 bg-light toolbar-sticky">
+    <div class="card-body p-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+
+        <div class="d-flex gap-2">
+            @* @if (Permissions.CanSave)
+            {
+                <button type="button" class="btn btn-success" @onclick="OnSave">
+                    <i class="bi bi-check-lg"></i> حفظ
+                </button>
+            } *@
+            @if (Permissions.CanSave)
+            {
+                <button type="button"
+                        class="btn btn-success"
+                        @onclick="HandleSave"
+                        disabled="@(IsSubmitting)">
+
+                    @if (IsSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        <span> جاري الحفظ...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-check-lg"></i>
+                
+                        <span> حفظ</span>
+                    }
+                </button>
+            }
+
+            @if (Permissions.CanEdit)
+            {
+                <button type="button" class="btn btn-warning" @onclick="OnEdit">
+                    <i class="bi bi-pencil"></i> تعديل
+                </button>
+            }
+
+            @if (Permissions.CanDelete)
+            {
+                <button type="button" class="btn btn-danger" @onclick="OnDelete">
+                    <i class="bi bi-trash"></i> حذف
+                </button>
+            }
+        </div>
+
+        <div class="d-flex gap-2">
+            @if (Permissions.CanPost)
+            {
+                <button type="button" class="btn btn-outline-primary" @onclick="OnPost">
+                    <i class="bi bi-send-check"></i> ترحيل محاسبي
+                </button>
+            }
+
+            @if (Permissions.CanApprove)
+            {
+                <button type="button" class="btn btn-dark" @onclick="OnApprove">
+                    <i class="bi bi-shield-check"></i> اعتماد المدير
+                </button>
+            }
+
+            @if (Permissions.CanPrint)
+            {
+                <button type="button" class="btn btn-outline-secondary" @onclick="OnPrint">
+                    <i class="bi bi-printer"></i> طباعة
+                </button>
+            }
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-info text-white" @onclick="OnSearch">
+                <i class="bi bi-search"></i> بحث (F2)
+            </button>
+            <button type="button" class="btn btn-secondary" @onclick="OnClear">
+                <i class="bi bi-file-earmark-plus"></i> جديد
+            </button>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    [Parameter] public PagePermissions Permissions { get; set; } = new();
+    [Parameter] public bool IsSubmitting { get; set; }
+    [Parameter] public bool HasSelectedCurrency { get; set; }
+    // الأحداث (Callbacks)
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnEdit { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public EventCallback OnPrint { get; set; }
+    [Parameter] public EventCallback OnPost { get; set; } // ترحيل
+    [Parameter] public EventCallback OnApprove { get; set; } // اعتماد
+    [Parameter] public EventCallback OnSearch { get; set; }
+    [Parameter] public EventCallback OnClear { get; set; }
+    private async Task HandleSave()
+    {
+        // إذا كان جارٍ الحفظ أو لم يتم اختيار عملة، لا تفعل شيئاً
+        if (IsSubmitting ) return;
+
+        await OnSave.InvokeAsync();
+    }
+}

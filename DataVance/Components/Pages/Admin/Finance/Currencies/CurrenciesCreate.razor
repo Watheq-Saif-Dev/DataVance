@@ -1,0 +1,142 @@
+﻿@page "/currencies/create"
+@inherits DataVanceBasePage
+@using DataVance.Application.Features.Currencies.Commands
+@inject NavigationManager NavigationManager
+
+<div class="container mt-4" dir="rtl">
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0"><i class="bi bi-cash-coin"></i> إضافة عملة جديدة للنظام</h4>
+        </div>
+        <div class="card-body bg-light">
+
+            @* EditForm هو المكون القياسي في Blazor للتعامل مع النماذج *@
+            <EditForm Model="@currencyModel" OnValidSubmit="HandleValidSubmit">
+                @* إذا كنت تستخدم DataAnnotations أو FluentValidation سيتم تفعيلها هنا *@
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">رمز العملة (Code)</label>
+                        <InputText @bind-Value="currencyModel.Code" class="form-control" placeholder="مثال: YER, USD" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">اسم العملة</label>
+                        <InputText @bind-Value="currencyModel.Name" class="form-control" placeholder="مثال: ريال يمني" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">الرمز (Symbol)</label>
+                        <InputText @bind-Value="currencyModel.Symbol" class="form-control" placeholder="مثال: ﷼, $" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">الخانات العشرية (Decimal Places)</label>
+                        <InputNumber @bind-Value="currencyModel.DecimalPlaces" class="form-control" min="0" max="4" />
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">سعر الصرف الافتتاحي</label>
+                        <InputNumber @bind-Value="currencyModel.InitialExchangeRate" class="form-control" step="0.0001" />
+                    </div>
+
+                    <div class="col-12 mt-4">
+                        <div class="form-check form-switch fs-5">
+                            <InputCheckbox @bind-Value="currencyModel.IsBaseCurrency" class="form-check-input" id="isBase" />
+                            <label class="form-check-label ms-2" for="isBase">تعيين كعملة أساسية للنظام (Base Currency)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 border-top pt-3 d-flex justify-content-end">
+                    <button type="button" class="btn btn-secondary me-2" @onclick="GoBack">إلغاء</button>
+                    <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span> جاري الحفظ...</span>
+                        }
+                        else
+                        {
+                            <span><i class="bi bi-save"></i> حفظ العملة</span>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger mt-3">@errorMessage</div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    
+    private CurrencyFormModel currencyModel = new() { DecimalPlaces = 2, InitialExchangeRate = 1 };
+    private bool isSubmitting = false;
+    private string errorMessage = string.Empty;
+
+    private async Task HandleValidSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+        
+            var command = new CreateCurrencyCommand(
+                currencyModel.Code,
+                currencyModel.Name,
+                currencyModel.Symbol,
+                currencyModel.DecimalPlaces,
+                currencyModel.IsBaseCurrency,
+                currencyModel.InitialExchangeRate
+            );
+
+           
+            var resultGuid = await ExecuteAsync(command);
+
+            // 3. إذا وصلنا هنا بدون Exception، يعني أن العملية نجحت
+            if (resultGuid != Guid.Empty)
+            {
+                NavigationManager.NavigateTo("/currencies");
+            }
+        }
+        catch (InvalidOperationException ex) // التقاط الأخطاء التي برمجناها في الـ Domain
+        {
+            // مثل: "العملة موجودة مسبقاً" أو "توجد عملة أساسية بالفعل"
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            // خطأ غير متوقع (قاعدة بيانات، اتصال، إلخ)
+            errorMessage = "حدث خطأ غير متوقع في النظام. يرجى المحاولة لاحقاً.";
+            // يمكنك هنا عمل Logging للخطأ الحقيقي ex.Message
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo("/currencies");
+    }
+
+    // كلاس مساعد (ViewModel) لربط الشاشة فقط
+    public class CurrencyFormModel
+    {
+        // يمكنك إضافة [Required] هنا إذا كنت تستخدم DataAnnotations
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Symbol { get; set; } = string.Empty;
+        public int DecimalPlaces { get; set; }
+        public bool IsBaseCurrency { get; set; }
+        public decimal InitialExchangeRate { get; set; }
+    }
+}

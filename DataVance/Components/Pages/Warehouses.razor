@@ -1,0 +1,149 @@
+﻿@page "/warehouses"
+@inherits DataVanceBasePage
+@using DataVance.Application.AlertServices
+@using DataVance.Application.Features.Warehouses.Commands
+@using DataVance.Application.Features.Warehouses.DTO
+@using DataVance.Application.Features.Warehouses.Query
+@using MediatR
+@inject IStatusMessageService statusMessage
+@inject ICurrentUserContext currentUser
+@inject IJSRuntime JS
+
+
+<div class="container-fluid p-4">
+    <div class="card sap-card">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0 text-primary fw-bold">
+                <i class="bi bi-house-gear me-2"></i> إدارة المخازن - فرع (@currentUser.BranchName)
+            </h5>
+        </div>
+
+        <div class="card-body bg-light border-bottom">
+            <div class="row g-2">
+                <div class="col-md-5">
+                    <input @bind="_newName" @bind:event="oninput" @onkeyup="HandleKeyUp"
+                           placeholder="أدخل اسم المخزن الجديد..." class="form-control sap-input" />
+                           <hr/>
+                    <input @bind="_location" @bind:event="oninput" @onkeyup="HandleKeyUp"
+                           placeholder="ادخل موقع الفرع..." class="form-control sap-input" />
+                </div>
+                <div class="col-md-4">
+                    <button class="sap-btn-success w-100" @onclick="AddWarehouse" disabled="@(string.IsNullOrWhiteSpace(_newName))">
+                        <i class="bi bi-plus-lg"></i> إضافة مخزن
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="small text-muted">
+                        <tr>
+                            <th class="ps-4">اسم المخزن</th>
+                            <th class="ps-4">موقع الفرع</th>
+                            <th class="text-center" style="width: 150px;">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (_list.Any())
+                        {
+                            @foreach (var item in _list)
+                            {
+                                <tr>
+                                    <td class="ps-4 align-middle">@item.Name</td>
+                                    <td class="ps-4 align-middle">@item.Location</td>
+
+                                    <td class="text-center">
+                                        <button class="btn btn-outline-danger btn-sm border-0" @onclick="() => HandleDelete(item.Id, item.Name)">
+                                            <i class="bi bi-trash me-1"></i> حذف
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="2" class="text-center py-5 text-muted">لا توجد مخازن مسجلة لهذا الفرع.</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<WarehouseDto> _list = new();
+    private string _newName = "";
+    private string _location = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await CheckPagePermission("Warehouses", "View"))
+        {
+            await LoadData();
+        }
+
+        // التفاعل مع تغيير الفرع في شريط النظام
+        currentUser.OnChangeAsync += async () =>
+        {
+            await LoadData();
+            StateHasChanged();
+        };
+    }
+
+    private async Task LoadData()
+    {
+        _list = await ExecuteAsync(new GetWarehousesQuery());
+    }
+
+    private async Task AddWarehouse()
+    {
+        if (!string.IsNullOrWhiteSpace(_newName ))
+        {
+            try
+            {
+
+
+                await ExecuteAsync(new CreateWarehouseCommand { Name= _newName ,Location = _location });
+                _newName = "";
+                _location = "";
+                await LoadData();
+                statusMessage.ShowMessage("تم حفظ الفرع بنجاح" , false);
+            }
+            catch(Exception ex)
+            {
+                statusMessage.ShowMessage($"فشل {ex.Message}", true);
+
+            }
+        }
+    }
+
+    private async Task HandleDelete(Guid id, string name)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirmDelete", $"هل أنت متأكد من حذف مستودع: {name}؟");
+        if (confirmed)
+        {
+            try
+            {
+        var success = await ExecuteAsync(new DeleteWarehouseCommand(id));
+            if (success) await LoadData();
+            else await JS.InvokeVoidAsync("alert", "عذراً، تعذر حذف المستودع.");
+            }
+            catch (Exception ex)
+            {
+                statusMessage.ShowMessage($"فشل {ex.Message}", true);
+
+            }
+        }
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await AddWarehouse();
+    }
+}
+
